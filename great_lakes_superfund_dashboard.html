@@ -73,7 +73,7 @@ h2 small{font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spaci
 .pdf-modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
 .pdf-modal.open{display:flex}
 .pdf-modal-backdrop{position:absolute;inset:0;background:rgba(20,38,46,.55)}
-.pdf-modal-panel{position:relative;background:var(--panel);border:1px solid var(--hairline);max-width:520px;width:100%;
+.pdf-modal-panel{position:relative;background:var(--panel);border:1px solid var(--hairline);max-width:560px;width:100%;
   max-height:90vh;overflow:auto;padding:20px 22px 18px;box-shadow:0 12px 40px rgba(20,38,46,.25)}
 .pdf-modal-panel h3{font-size:18px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--hairline)}
 .pdf-modal-panel fieldset{border:1px solid var(--hairline);padding:12px 14px 10px;margin-bottom:12px}
@@ -86,6 +86,9 @@ h2 small{font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spaci
 .pdf-field label{display:block;font-family:ui-monospace,Consolas,monospace;font-size:10.5px;letter-spacing:.08em;
   text-transform:uppercase;color:var(--steel);margin-bottom:4px}
 .pdf-field select,.pdf-field input{width:100%;border:1px solid var(--hairline);background:#F7FAFA;padding:7px 9px}
+.pdf-colors{margin-top:8px;padding:8px 10px;background:#F7FAFA;border:1px solid var(--hairline)}
+.pdf-color-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:5px 0;font-size:13px}
+.pdf-color-row input[type=color]{width:44px;height:28px;padding:2px;border:1px solid var(--hairline);cursor:pointer;background:#fff}
 .pdf-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--hairline)}
 .pdf-cancel{background:none;border:1px dashed var(--steel);color:var(--steel);padding:8px 14px;cursor:pointer}
 .pdf-cancel:hover{color:var(--ink);border-color:var(--ink)}
@@ -290,6 +293,38 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
         <input id="pdf-search" type="search" placeholder="Name, city, contaminant…"></div>
       <div class="pdf-field"><label>Lake basins</label>
         <div class="pdf-lakes" id="pdf-lakes"></div></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Figure appearance</legend>
+      <div class="pdf-field"><label for="pdf-fig-title">Figure title</label>
+        <input id="pdf-fig-title" type="text" value="Great Lakes Superfund Sites and Areas of Concern"></div>
+      <div class="pdf-field"><label for="pdf-fig-size">Figure size (on page)</label>
+        <select id="pdf-fig-size">
+          <option value="small">Small — 4 × 2.5 in</option>
+          <option value="medium" selected>Medium — 6.5 × 4 in</option>
+          <option value="large">Large — 7.5 × 4.5 in</option>
+          <option value="full">Full width — use maximum page width</option>
+        </select></div>
+      <div class="pdf-field"><label for="pdf-symbol-size">Symbol size</label>
+        <select id="pdf-symbol-size">
+          <option value="small">Small</option>
+          <option value="medium" selected>Medium</option>
+          <option value="large">Large</option>
+        </select></div>
+      <div class="pdf-field"><label for="pdf-color-mode">Symbol colors</label>
+        <select id="pdf-color-mode">
+          <option value="default" selected>Default (color by status)</option>
+          <option value="custom">Custom colors</option>
+        </select></div>
+      <div id="pdf-custom-colors" class="pdf-colors" hidden>
+        <label class="pdf-color-row">NPL — cleanup ongoing <input type="color" id="pdf-col-npl-a" value="#B7431C"></label>
+        <label class="pdf-color-row">NPL — construction complete <input type="color" id="pdf-col-npl-c" value="#C9930F"></label>
+        <label class="pdf-color-row">NPL — deleted <input type="color" id="pdf-col-npl-d" value="#2F7D4E"></label>
+        <label class="pdf-color-row">AOC — active <input type="color" id="pdf-col-aoc-a" value="#14707E"></label>
+        <label class="pdf-color-row">AOC — delisted <input type="color" id="pdf-col-aoc-d" value="#2F7D4E"></label>
+      </div>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-legend" checked> Draw legend on figure</label>
     </fieldset>
 
     <fieldset>
@@ -656,6 +691,116 @@ function applyLayerVisibility(){
 }
 
 /* ================= PDF REPORT EXPORT ================= */
+const SYMBOL_SIZES = { small: { r: 4, half: 3.5 }, medium: { r: 6, half: 5 }, large: { r: 9, half: 7.5 } };
+const FIGURE_PT = {
+  small:  { w: 288, h: 180 },
+  medium: { w: 468, h: 288 },
+  large:  { w: 540, h: 324 },
+  full:   null
+};
+
+function readCustomColorsFromForm(){
+  return {
+    nplA: $('pdf-col-npl-a').value,
+    nplC: $('pdf-col-npl-c').value,
+    nplD: $('pdf-col-npl-d').value,
+    aocActive: $('pdf-col-aoc-a').value,
+    aocDelisted: $('pdf-col-aoc-d').value
+  };
+}
+
+function getSymbolColor(rec, opts){
+  if (opts.colorMode === 'default'){
+    return rec.type === 'NPL' ? STATUS_COLOR[rec.st] : AOC_COLOR(rec.aocStatus);
+  }
+  const c = opts.customColors;
+  if (rec.type === 'NPL'){
+    if (rec.st === 'A') return c.nplA;
+    if (rec.st === 'C') return c.nplC;
+    return c.nplD;
+  }
+  return /delist/i.test(rec.aocStatus) ? c.aocDelisted : c.aocActive;
+}
+
+function getLegendItems(opts){
+  const c = opts.colorMode === 'custom' ? opts.customColors : {
+    nplA: STATUS_COLOR.A, nplC: STATUS_COLOR.C, nplD: STATUS_COLOR.D,
+    aocActive: '#14707E', aocDelisted: '#2F7D4E'
+  };
+  const items = [];
+  if (opts.showNPL){
+    items.push({ shape: 'circle', color: c.nplA, label: 'NPL — cleanup ongoing' });
+    items.push({ shape: 'circle', color: c.nplC, label: 'NPL — construction complete' });
+    items.push({ shape: 'circle', color: c.nplD, label: 'NPL — deleted' });
+  }
+  if (opts.showAOC){
+    items.push({ shape: 'diamond', color: c.aocActive, label: 'AOC — active' });
+    items.push({ shape: 'diamond', color: c.aocDelisted, label: 'AOC — delisted' });
+  }
+  if (opts.showWatershed){
+    items.push({ shape: 'line', color: '#B7431C', label: 'Watershed boundary' });
+  }
+  if (opts.showStates){
+    items.push({ shape: 'line', color: '#8A9AA0', label: 'State boundary' });
+  }
+  return items;
+}
+
+function drawLegendBox(ctx, width, height, opts){
+  const items = getLegendItems(opts);
+  if (!items.length) return;
+  const sz = SYMBOL_SIZES[opts.symbolSize];
+  const pad = 10;
+  const rowH = Math.max(16, sz.r * 2 + 4);
+  const boxW = 220;
+  const boxH = pad * 2 + items.length * rowH + 14;
+  const x0 = width - boxW - 12;
+  const y0 = height - boxH - 12;
+
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.strokeStyle = '#C4CFD4';
+  ctx.lineWidth = 1;
+  ctx.fillRect(x0, y0, boxW, boxH);
+  ctx.strokeRect(x0, y0, boxW, boxH);
+
+  ctx.fillStyle = '#14262E';
+  ctx.font = 'bold 13px "Segoe UI", sans-serif';
+  ctx.fillText('Legend', x0 + pad, y0 + pad + 10);
+
+  ctx.font = '11px "Segoe UI", sans-serif';
+  items.forEach((item, i) => {
+    const cy = y0 + pad + 18 + i * rowH + rowH / 2;
+    const ix = x0 + pad + sz.r;
+    if (item.shape === 'circle'){
+      ctx.fillStyle = item.color;
+      ctx.beginPath();
+      ctx.arc(ix, cy, sz.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    } else if (item.shape === 'diamond'){
+      ctx.fillStyle = item.color;
+      ctx.save();
+      ctx.translate(ix, cy);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillRect(-sz.half, -sz.half, sz.half * 2, sz.half * 2);
+      ctx.restore();
+    } else {
+      ctx.strokeStyle = item.color;
+      ctx.lineWidth = item.label.includes('Watershed') ? 2 : 1.2;
+      if (item.label.includes('Watershed')) ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(ix - 8, cy);
+      ctx.lineTo(ix + 8, cy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.fillStyle = '#14262E';
+    ctx.fillText(item.label, x0 + pad + sz.r * 2 + 10, cy + 4);
+  });
+}
+
 function getCurrentBasemap(){
   if (map.hasLayer(streets) && !map.hasLayer(satellite)) return 'streets';
   if (map.hasLayer(satellite)) return 'satellite';
@@ -674,6 +819,9 @@ function describePdfOptions(opts){
   if (!opts.showWatershed) parts.push('Watershed boundary hidden');
   const basemapLabels = { none:'No basemap', satellite:'Satellite (Esri)', streets:'OpenStreetMap', current:'Current map basemap' };
   parts.push(`Basemap: ${basemapLabels[opts.basemap] || opts.basemap}`);
+  parts.push(`Symbol size: ${opts.symbolSize}`);
+  parts.push(`Colors: ${opts.colorMode === 'custom' ? 'Custom' : 'Default'}`);
+  if (opts.figureTitle) parts.push(`Figure: "${opts.figureTitle}"`);
   if (selectedKey){
     const r = RECORDS.find(x => x.key === selectedKey);
     if (r) parts.push(`Highlighted site: ${r.n}`);
@@ -751,6 +899,7 @@ async function renderMapToCanvas(width, height, opts, rows){
 
   const basemap = opts.basemap === 'current' ? getCurrentBasemap() : opts.basemap;
   const basemapDrawn = await drawBasemapTiles(ctx, width, height, basemap);
+  const sz = SYMBOL_SIZES[opts.symbolSize] || SYMBOL_SIZES.medium;
 
   const drawRing = ring => {
     ctx.beginPath();
@@ -786,23 +935,26 @@ async function renderMapToCanvas(width, height, opts, rows){
 
   rows.forEach(rec => {
     const [x, y] = xy(rec.lat, rec.lng);
+    const color = getSymbolColor(rec, opts);
     if (rec.type === 'NPL'){
-      ctx.fillStyle = STATUS_COLOR[rec.st];
+      ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.arc(x, y, sz.r, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = Math.max(1.5, sz.r * 0.3);
       ctx.stroke();
     } else {
-      ctx.fillStyle = AOC_COLOR(rec.aocStatus);
+      ctx.fillStyle = color;
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(Math.PI / 4);
-      ctx.fillRect(-5, -5, 10, 10);
+      ctx.fillRect(-sz.half, -sz.half, sz.half * 2, sz.half * 2);
       ctx.restore();
     }
   });
+
+  if (opts.showLegend) drawLegendBox(ctx, width, height, opts);
 
   return { canvas, basemapDrawn, basemapUsed: basemap };
 }
@@ -828,8 +980,18 @@ function readPdfOptionsFromForm(){
     lakes,
     showStates: $('pdf-states').checked,
     showWatershed: $('pdf-watershed').checked,
-    includeRegister: $('pdf-register').checked
+    includeRegister: $('pdf-register').checked,
+    figureTitle: $('pdf-fig-title').value.trim() || 'Great Lakes Superfund Sites and Areas of Concern',
+    figureSize: $('pdf-fig-size').value,
+    symbolSize: $('pdf-symbol-size').value,
+    colorMode: $('pdf-color-mode').value,
+    customColors: readCustomColorsFromForm(),
+    showLegend: $('pdf-legend').checked
   };
+}
+
+function togglePdfCustomColors(){
+  $('pdf-custom-colors').hidden = $('pdf-color-mode').value !== 'custom';
 }
 
 function syncPdfModalFromMap(){
@@ -844,6 +1006,15 @@ function syncPdfModalFromMap(){
   document.querySelectorAll('#pdf-lakes input').forEach(inp => {
     inp.checked = activeLakes.has(inp.value);
   });
+  togglePdfCustomColors();
+}
+
+function figureDimensions(pdfOpts, pageW, yStart, pageH, margin){
+  const preset = FIGURE_PT[pdfOpts.figureSize];
+  if (preset) return { w: preset.w, h: preset.h };
+  const maxW = pageW - margin * 2;
+  const maxH = pageH - yStart - margin - 30;
+  return { w: maxW, h: Math.min(maxH, maxW * 0.58) };
 }
 
 function openPdfModal(){
@@ -877,7 +1048,10 @@ async function exportPdfReport(pdfOpts){
 
     const center = map.getCenter();
     const zoom = map.getZoom();
-    const { canvas, basemapDrawn, basemapUsed } = await renderMapToCanvas(1200, 700, pdfOpts, rows);
+    const figDims = figureDimensions(pdfOpts, 792, 0, 612, 40);
+    const canvasW = Math.round(figDims.w * 2.2);
+    const canvasH = Math.round(figDims.h * 2.2);
+    const { canvas, basemapDrawn, basemapUsed } = await renderMapToCanvas(canvasW, canvasH, pdfOpts, rows);
     const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
     const { jsPDF } = window.jspdf;
@@ -914,18 +1088,33 @@ async function exportPdfReport(pdfOpts){
       `Records shown: ${rows.length}  ·  NPL: ${nplCount}  ·  AOC: ${aocCount}  ·  View: zoom ${zoom}, ${center.lat.toFixed(2)}°N ${Math.abs(center.lng).toFixed(2)}°W`,
       margin, y
     );
-    y += 16;
+    y += 18;
 
-    const imgW = pageW - margin * 2;
-    const imgH = Math.min((canvas.height / canvas.width) * imgW, 310);
-    pdf.addImage(imgData, 'JPEG', margin, y, imgW, imgH);
-    y += imgH + 10;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.setTextColor(20, 38, 46);
+    pdf.text(pdfOpts.figureTitle, margin, y);
+    y += 14;
 
+    const dims = figureDimensions(pdfOpts, pageW, y, pageH, margin);
+    pdf.addImage(imgData, 'JPEG', margin, y, dims.w, dims.h);
+    y += dims.h + 8;
+
+    pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8);
     pdf.setTextColor(90, 110, 120);
-    const legend = 'Legend: ● NPL cleanup ongoing · ● NPL construction complete · ● NPL deleted · ◆ AOC active · ◆ AOC delisted · — watershed boundary';
-    pdf.text(pdf.splitTextToSize(legend, pageW - margin * 2), margin, y);
-    y += 22;
+    const sizeLabel = { small:'4×2.5 in', medium:'6.5×4 in', large:'7.5×4.5 in', full:'full width' };
+    pdf.text(
+      `Figure size: ${sizeLabel[pdfOpts.figureSize] || pdfOpts.figureSize}  ·  Symbol size: ${pdfOpts.symbolSize}  ·  Legend: ${pdfOpts.showLegend ? 'on figure' : 'not shown'}`,
+      margin, y
+    );
+    y += 12;
+
+    if (!pdfOpts.showLegend){
+      const legendText = getLegendItems(pdfOpts).map(it => it.label).join(' · ');
+      if (legendText) pdf.text(pdf.splitTextToSize('Legend: ' + legendText, pageW - margin * 2), margin, y);
+      y += 14;
+    }
 
     if (basemapUsed !== 'none' && !basemapDrawn){
       pdf.text('Note: Basemap tiles could not be loaded; map shows boundaries and markers only.', margin, y);
@@ -1027,6 +1216,7 @@ $('f-reset').addEventListener('click', ()=>{
 $('btn-export-pdf').addEventListener('click', openPdfModal);
 $('pdf-cancel').addEventListener('click', closePdfModal);
 $('pdf-modal-backdrop').addEventListener('click', closePdfModal);
+$('pdf-color-mode').addEventListener('change', togglePdfCustomColors);
 $('pdf-generate').addEventListener('click', () => exportPdfReport(readPdfOptionsFromForm()));
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && $('pdf-modal').classList.contains('open')) closePdfModal();
