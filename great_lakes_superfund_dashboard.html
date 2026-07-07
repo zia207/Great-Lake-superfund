@@ -64,6 +64,31 @@ h2 small{font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spaci
 
 .map-wrap{display:grid;grid-template-columns:2fr 1fr;gap:14px}
 .map-card{background:var(--panel);border:1px solid var(--hairline);padding:10px}
+.map-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.export-pdf{background:var(--lake);color:#fff;border:none;padding:8px 14px;cursor:pointer;
+  font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+  clip-path:polygon(8px 0,100% 0,100% 100%,0 100%,0 8px)}
+.export-pdf:hover{background:#0E5A66}
+.export-pdf:disabled{opacity:.55;cursor:wait}
+.pdf-modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
+.pdf-modal.open{display:flex}
+.pdf-modal-backdrop{position:absolute;inset:0;background:rgba(20,38,46,.55)}
+.pdf-modal-panel{position:relative;background:var(--panel);border:1px solid var(--hairline);max-width:520px;width:100%;
+  max-height:90vh;overflow:auto;padding:20px 22px 18px;box-shadow:0 12px 40px rgba(20,38,46,.25)}
+.pdf-modal-panel h3{font-size:18px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--hairline)}
+.pdf-modal-panel fieldset{border:1px solid var(--hairline);padding:12px 14px 10px;margin-bottom:12px}
+.pdf-modal-panel legend{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--steel);padding:0 6px}
+.pdf-opt{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:14px;cursor:pointer}
+.pdf-opt input{accent-color:var(--lake)}
+.pdf-lakes{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:4px}
+.pdf-field{margin-top:8px}
+.pdf-field label{display:block;font-family:ui-monospace,Consolas,monospace;font-size:10.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--steel);margin-bottom:4px}
+.pdf-field select,.pdf-field input{width:100%;border:1px solid var(--hairline);background:#F7FAFA;padding:7px 9px}
+.pdf-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--hairline)}
+.pdf-cancel{background:none;border:1px dashed var(--steel);color:var(--steel);padding:8px 14px;cursor:pointer}
+.pdf-cancel:hover{color:var(--ink);border-color:var(--ink)}
 #map{width:100%;height:560px;background:#DDE6E8}
 .map-note{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--steel);margin-top:6px;line-height:1.5}
 .detail{background:var(--panel);border:1px solid var(--hairline);padding:16px;max-height:640px;overflow:auto}
@@ -185,6 +210,9 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
     <h2>Basin map <small>satellite basemap · click a marker or register row for the dossier</small></h2>
     <div class="map-wrap">
       <div class="map-card">
+        <div class="map-toolbar">
+          <button type="button" class="export-pdf" id="btn-export-pdf">Export PDF map report</button>
+        </div>
         <div id="map" role="application" aria-label="Satellite map of Superfund sites and Areas of Concern in the Great Lakes watershed"></div>
         <div class="map-note">Basemap: Esri World Imagery (satellite) / OpenStreetMap (street), switchable via the layer control top-right ·
           Watershed boundary: uploaded <strong>Great Lakes Watershed Boundary</strong> KMZ, simplified for display ·
@@ -232,6 +260,52 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
 
 </main>
 
+<div id="pdf-modal" class="pdf-modal" aria-hidden="true">
+  <div class="pdf-modal-backdrop" id="pdf-modal-backdrop"></div>
+  <div class="pdf-modal-panel" role="dialog" aria-modal="true" aria-labelledby="pdf-modal-title">
+    <h3 id="pdf-modal-title">Export PDF map report</h3>
+
+    <fieldset>
+      <legend>Basemap</legend>
+      <label class="pdf-opt"><input type="radio" name="pdf-basemap" value="current" checked> Match current map view</label>
+      <label class="pdf-opt"><input type="radio" name="pdf-basemap" value="satellite"> Satellite (Esri World Imagery)</label>
+      <label class="pdf-opt"><input type="radio" name="pdf-basemap" value="streets"> OpenStreetMap (street)</label>
+      <label class="pdf-opt"><input type="radio" name="pdf-basemap" value="none"> None (boundaries &amp; markers only)</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Dataset</legend>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-npl" checked> NPL Superfund sites</label>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-aoc" checked> Areas of Concern</label>
+      <div class="pdf-field"><label for="pdf-state">State</label>
+        <select id="pdf-state"><option value="">All states</option></select></div>
+      <div class="pdf-field"><label for="pdf-status">NPL status</label>
+        <select id="pdf-status">
+          <option value="">All statuses</option>
+          <option>Cleanup ongoing</option>
+          <option>Construction complete</option>
+          <option>Deleted from NPL</option>
+        </select></div>
+      <div class="pdf-field"><label for="pdf-search">Search</label>
+        <input id="pdf-search" type="search" placeholder="Name, city, contaminant…"></div>
+      <div class="pdf-field"><label>Lake basins</label>
+        <div class="pdf-lakes" id="pdf-lakes"></div></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Map layers &amp; report</legend>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-states" checked> State boundaries</label>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-watershed" checked> Watershed boundary</label>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-register" checked> Include site register table</label>
+    </fieldset>
+
+    <div class="pdf-modal-actions">
+      <button type="button" class="pdf-cancel" id="pdf-cancel">Cancel</button>
+      <button type="button" class="export-pdf" id="pdf-generate">Generate PDF</button>
+    </div>
+  </div>
+</div>
+
 <footer>
   <div class="foot-inner">
     <p><strong style="color:#DCE7EA">About this data.</strong> NPL site list is a curated, substantially expanded set of real
@@ -258,6 +332,8 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
 <script>
 /* ================= EMBEDDED REAL GEOMETRY ================= */
 const WATERSHED_GEOJSON = {"type":"Feature","properties":{"name":"Great Lakes Watershed Boundary"},"geometry":{"type":"Polygon","coordinates":[[[-74.6662,45.0035],[-75.1154,44.85],[-75.2675,44.654],[-75.208,44.5526],[-75.3323,44.4547],[-75.3473,44.3176],[-74.7348,44.2399],[-74.7084,44.138],[-74.8235,44.0481],[-74.6126,43.9558],[-74.8216,43.8047],[-74.5174,43.7369],[-74.4993,43.6578],[-74.8698,43.5385],[-74.8189,43.5104],[-74.8862,43.4311],[-75.151,43.3395],[-75.5272,43.5323],[-75.4409,43.231],[-75.5684,42.9067],[-75.6902,42.9576],[-75.7357,42.8434],[-75.8824,42.7954],[-76.0153,42.8827],[-76.0452,42.7962],[-76.242,42.8045],[-76.2728,42.6819],[-76.1676,42.4964],[-76.3154,42.3497],[-76.4663,42.3581],[-76.5196,42.2681],[-76.6737,42.4233],[-76.7641,42.4038],[-76.7231,42.3104],[-76.8323,42.1835],[-77.0054,42.3601],[-77.0033,42.485],[-77.3092,42.3462],[-77.3242,42.4129],[-77.2004,42.4763],[-77.2095,42.6049],[-77.4266,42.5588],[-77.5373,42.6506],[-77.6082,42.4464],[-77.8966,42.3839],[-77.6688,42.0347],[-77.7385,41.8864],[-77.8638,41.8446],[-78.4187,42.4159],[-78.588,42.4163],[-78.8141,42.2633],[-79.0111,42.4457],[-79.1633,42.4355],[-79.1874,42.3291],[-79.4376,42.3471],[-79.559,42.1794],[-79.749,42.1816],[-80.0717,42.0258],[-80.0188,41.9683],[-80.3303,41.8182],[-80.3404,41.6644],[-80.5144,41.7493],[-80.7459,41.5727],[-80.8871,41.2908],[-81.1514,41.3584],[-81.2613,40.9723],[-81.6408,41.1432],[-81.769,41.1504],[-81.8204,41.0724],[-81.9897,41.1365],[-82.0203,41.0108],[-82.6991,40.9477],[-82.7632,40.8792],[-82.6678,40.8141],[-82.6936,40.7526],[-82.9762,40.7982],[-83.3213,40.5913],[-83.891,40.7241],[-84.0478,40.5076],[-84.4904,40.4001],[-84.5246,40.551],[-85.0693,40.7262],[-85.0812,40.8765],[-85.2114,40.9189],[-85.2224,41.126],[-85.1297,41.2031],[-85.3297,41.3229],[-85.9004,41.3089],[-85.9243,41.4196],[-86.0574,41.4571],[-85.9744,41.4796],[-86.2952,41.5853],[-86.3511,41.7961],[-87.0503,41.5339],[-87.0307,41.3997],[-87.1308,41.4687],[-87.2647,41.3577],[-87.4296,41.3876],[-87.4793,41.4527],[-87.3457,41.5778],[-87.604,41.6736],[-87.5483,41.7423],[-87.8534,42.2763],[-87.924,42.6997],[-87.9862,42.6366],[-88.089,42.6969],[-88.107,43.1481],[-88.2043,43.1952],[-88.354,43.5782],[-88.7584,43.7741],[-88.9583,43.6175],[-89.2931,43.5338],[-89.6459,43.5854],[-89.6097,43.6322],[-89.7115,43.6858],[-89.671,43.8923],[-89.3484,44.1937],[-89.4131,44.6855],[-89.2967,44.7781],[-89.3336,44.8673],[-89.1547,45.1222],[-88.9416,45.2437],[-89.2404,45.4093],[-88.9756,45.749],[-89.0462,46.0],[-88.9087,46.12],[-89.294,46.2143],[-89.4024,46.0977],[-89.6374,46.2078],[-89.7819,46.1816],[-89.8719,46.3032],[-89.9898,46.3117],[-90.6931,46.1655],[-90.9648,46.2151],[-91.0611,46.3056],[-91.2912,46.2344],[-91.2923,46.3525],[-91.4607,46.4656],[-91.7142,46.3817],[-91.9294,46.4466],[-92.0277,46.3598],[-92.3318,46.3186],[-92.64,46.4197],[-92.6421,46.5593],[-92.551,46.6146],[-92.589,46.6849],[-92.7453,46.6473],[-92.88,46.8049],[-93.1716,46.8414],[-93.1232,47.0371],[-93.2053,47.1539],[-92.9886,47.4588],[-92.5912,47.5735],[-92.4959,47.4788],[-92.3071,47.5564],[-92.2742,47.722],[-92.0948,47.8034],[-92.0911,47.7349],[-91.9294,47.7084],[-91.8924,47.5949],[-91.6708,47.5478],[-91.7211,47.4478],[-91.5475,47.4478],[-90.9556,47.7702],[-90.9238,47.9372],[-90.0157,48.3085],[-90.0157,48.3671],[-90.3712,48.3983],[-90.3165,48.4843],[-90.4376,48.4764],[-90.5157,48.6405],[-90.754,48.6835],[-90.1524,48.8163],[-89.9688,48.7225],[-89.8438,48.8592],[-90.2813,49.1561],[-90.1524,49.1796],[-90.1798,49.3124],[-90.1056,49.3866],[-90.211,49.453],[-90.2345,49.6366],[-90.0899,49.6795],[-89.9962,49.9647],[-89.6484,50.1602],[-89.4063,50.1367],[-89.4258,50.1992],[-89.3047,50.2148],[-89.2812,50.3945],[-89.2109,50.3047],[-89.0625,50.3047],[-89.0,50.457],[-88.8555,50.543],[-88.8945,50.5937],[-88.668,50.6797],[-88.7109,50.7344],[-88.4805,50.6602],[-88.3828,50.7383],[-88.3437,50.6992],[-88.5039,50.582],[-88.3398,50.5391],[-88.1875,50.6367],[-88.1641,50.4336],[-87.6328,50.3398],[-87.4922,50.2578],[-87.5117,50.1992],[-87.3555,50.2227],[-87.3359,50.1602],[-87.457,50.125],[-87.2422,50.0547],[-87.4493,49.8475],[-87.0079,49.8046],[-87.3946,49.3983],[-87.3712,49.0975],[-87.2501,49.1092],[-87.1524,49.2616],[-87.0157,49.0663],[-86.9766,49.3202],[-86.5626,49.5585],[-86.3438,49.7811],[-86.2735,49.7694],[-86.3126,49.6718],[-86.1055,49.6249],[-86.0391,49.496],[-85.8946,49.6015],[-85.8204,49.5312],[-85.6251,49.6366],[-85.4493,49.5351],[-85.5626,49.3632],[-85.4884,49.1171],[-85.2969,49.1406],[-85.3399,49.0312],[-85.211,49.0624],[-84.836,48.9453],[-84.8594,48.7148],[-84.7969,48.6367],[-84.8751,48.5234],[-84.6915,48.5586],[-84.5547,48.7421],[-84.3243,48.8164],[-84.3946,48.5586],[-84.1797,48.6133],[-84.1289,48.5],[-83.9024,48.5156],[-83.961,48.4531],[-83.8906,48.375],[-84.086,48.1875],[-83.7227,48.2734],[-83.7695,48.1953],[-83.6992,48.1484],[-83.8086,48.043],[-83.6563,47.9453],[-83.4922,48.0],[-83.4531,47.9414],[-83.6797,47.7734],[-83.6641,47.6797],[-83.4648,47.7656],[-83.4062,47.6406],[-82.9765,47.5391],[-82.9101,47.5859],[-82.9609,47.4297],[-82.7773,47.3477],[-82.7265,47.4297],[-82.4687,47.4961],[-82.246,47.3867],[-82.0703,47.5274],[-81.871,47.4219],[-81.6953,47.4375],[-81.4843,47.1758],[-81.3398,47.4648],[-80.9023,47.375],[-80.8398,47.4727],[-80.8241,47.3633],[-80.621,47.1992],[-80.4569,47.2813],[-80.2929,47.1523],[-79.8671,47.3555],[-79.9686,47.1328],[-79.9374,47.0664],[-79.7811,47.0664],[-79.8514,46.9609],[-79.8124,46.8945],[-79.4686,46.9024],[-79.6327,46.7578],[-79.6014,46.6914],[-79.5155,46.7149],[-79.5585,46.6172],[-79.4061,46.4414],[-79.4725,46.3281],[-79.2108,46.2617],[-79.3006,46.1914],[-79.0584,46.1016],[-79.2342,45.9766],[-79.2733,45.8399],[-79.0936,45.8321],[-78.9334,45.6406],[-78.6209,45.6758],[-78.5818,45.5899],[-78.6834,45.5391],[-78.531,45.3516],[-78.2615,45.2032],[-78.2771,45.1211],[-77.9099,45.043],[-77.8982,44.9414],[-77.6404,44.9102],[-77.6208,44.9961],[-77.2263,44.918],[-77.199,44.8321],[-77.0349,44.7657],[-76.824,44.8243],[-76.8513,44.6602],[-76.6716,44.5899],[-75.9333,44.7188],[-75.9216,44.6407],[-75.6598,44.6602],[-75.2419,44.9649],[-75.1756,44.9026],[-74.5747,45.0551],[-74.1631,45.3004],[-73.9397,45.3308],[-74.0107,45.4179],[-73.6064,45.4165],[-73.4444,45.6875],[-73.5077,45.4117],[-73.7581,45.4003],[-73.9969,45.2286],[-74.1647,45.2279],[-74.6662,45.0035]]]}};
@@ -433,15 +509,20 @@ function drawMarkers(rows){
 }
 
 /* ================= FILTERING ================= */
-function filtered(){
-  const st=$('f-state').value, status=$('f-status').value, q=$('f-search').value.trim().toLowerCase();
+function filterRecords(opts = {}){
+  const st = opts.state !== undefined ? opts.state : $('f-state').value;
+  const status = opts.status !== undefined ? opts.status : $('f-status').value;
+  const q = (opts.search !== undefined ? opts.search : $('f-search').value).trim().toLowerCase();
+  const lakes = opts.lakes !== undefined ? opts.lakes : activeLakes;
+  const incNpl = opts.showNPL !== undefined ? opts.showNPL : showNPL;
+  const incAoc = opts.showAOC !== undefined ? opts.showAOC : showAOC;
   return RECORDS.filter(r=>{
     if (!r.inside) return false;
-    if (r.type==='NPL' && !showNPL) return false;
-    if (r.type==='AOC' && !showAOC) return false;
+    if (r.type==='NPL' && !incNpl) return false;
+    if (r.type==='AOC' && !incAoc) return false;
     if (st && !r.s.split('/').includes(st)) return false;
     if (status && (r.type!=='NPL' || STATUS_LABEL[r.st]!==status)) return false;
-    if (!activeLakes.has(r.lake)) return false;
+    if (!lakes.has(r.lake)) return false;
     if (q){
       const hay=(r.n+' '+r.c+' '+r.s+' '+r.lake+' '+r.con.join(' ')+' '+r.src).toLowerCase();
       if (!hay.includes(q)) return false;
@@ -449,6 +530,7 @@ function filtered(){
     return true;
   });
 }
+function filtered(){ return filterRecords({}); }
 
 function render(){
   const rows = filtered();
@@ -573,10 +655,332 @@ function applyLayerVisibility(){
   if (showWatershedLayer) { if(!map.hasLayer(watershedLayer)) watershedLayer.addTo(map); } else { map.removeLayer(watershedLayer); }
 }
 
+/* ================= PDF REPORT EXPORT ================= */
+function getCurrentBasemap(){
+  if (map.hasLayer(streets) && !map.hasLayer(satellite)) return 'streets';
+  if (map.hasLayer(satellite)) return 'satellite';
+  return 'none';
+}
+
+function describePdfOptions(opts){
+  const parts = [];
+  if (opts.state) parts.push(`State: ${opts.state}`);
+  if (opts.status) parts.push(`NPL status: ${opts.status}`);
+  if (opts.search) parts.push(`Search: "${opts.search}"`);
+  if (opts.lakes.size < LAKES.length) parts.push(`Lake basins: ${[...opts.lakes].join(', ')}`);
+  if (!opts.showNPL) parts.push('NPL sites excluded');
+  if (!opts.showAOC) parts.push('AOCs excluded');
+  if (!opts.showStates) parts.push('State boundaries hidden');
+  if (!opts.showWatershed) parts.push('Watershed boundary hidden');
+  const basemapLabels = { none:'No basemap', satellite:'Satellite (Esri)', streets:'OpenStreetMap', current:'Current map basemap' };
+  parts.push(`Basemap: ${basemapLabels[opts.basemap] || opts.basemap}`);
+  if (selectedKey){
+    const r = RECORDS.find(x => x.key === selectedKey);
+    if (r) parts.push(`Highlighted site: ${r.n}`);
+  }
+  return parts.length ? parts.join(' · ') : 'All records inside watershed';
+}
+
+function loadTileImage(url){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('tile load failed'));
+    img.src = url;
+  });
+}
+
+function tileLng(x, z){ return x / Math.pow(2, z) * 360 - 180; }
+function tileLat(y, z){
+  const n = Math.PI - 2 * Math.PI * y / Math.pow(2, z);
+  return 180 / Math.PI * Math.atan(Math.sinh(n));
+}
+
+async function drawBasemapTiles(ctx, width, height, basemap){
+  if (basemap === 'none') return false;
+  const bounds = map.getBounds();
+  const west = bounds.getWest(), east = bounds.getEast(), north = bounds.getNorth(), south = bounds.getSouth();
+  const lngSpan = east - west || 1;
+  const latSpan = north - south || 1;
+  const xy = (lat, lng) => [
+    ((lng - west) / lngSpan) * width,
+    ((north - lat) / latSpan) * height
+  ];
+  const z = Math.min(Math.max(map.getZoom(), 4), 10);
+  const n = Math.pow(2, z);
+  const xMin = Math.max(0, Math.floor((west + 180) / 360 * n));
+  const xMax = Math.min(n - 1, Math.floor((east + 180) / 360 * n));
+  const yMin = Math.max(0, Math.floor((1 - Math.log(Math.tan(north * Math.PI / 180) + 1 / Math.cos(north * Math.PI / 180)) / Math.PI) / 2 * n));
+  const yMax = Math.min(n - 1, Math.floor((1 - Math.log(Math.tan(south * Math.PI / 180) + 1 / Math.cos(south * Math.PI / 180)) / Math.PI) / 2 * n));
+  const subs = ['a', 'b', 'c'];
+  let drewAny = false;
+  for (let x = xMin; x <= xMax; x++){
+    for (let y = yMin; y <= yMax; y++){
+      const url = basemap === 'satellite'
+        ? `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`
+        : `https://${subs[(x + y) % 3]}.tile.openstreetmap.org/${z}/${x}/${y}.png`;
+      try {
+        const img = await loadTileImage(url);
+        const tl = xy(tileLat(y, z), tileLng(x, z));
+        const br = xy(tileLat(y + 1, z), tileLng(x + 1, z));
+        ctx.drawImage(img, tl[0], tl[1], br[0] - tl[0], br[1] - tl[1]);
+        drewAny = true;
+      } catch { /* skip unavailable tiles */ }
+    }
+  }
+  return drewAny;
+}
+
+async function renderMapToCanvas(width, height, opts, rows){
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#DDE6E8';
+  ctx.fillRect(0, 0, width, height);
+
+  const bounds = map.getBounds();
+  const west = bounds.getWest(), east = bounds.getEast(), north = bounds.getNorth(), south = bounds.getSouth();
+  const lngSpan = east - west || 1;
+  const latSpan = north - south || 1;
+  const xy = (lat, lng) => [
+    ((lng - west) / lngSpan) * width,
+    ((north - lat) / latSpan) * height
+  ];
+
+  const basemap = opts.basemap === 'current' ? getCurrentBasemap() : opts.basemap;
+  const basemapDrawn = await drawBasemapTiles(ctx, width, height, basemap);
+
+  const drawRing = ring => {
+    ctx.beginPath();
+    ring.forEach((pt, i) => {
+      const [x, y] = xy(pt[1], pt[0]);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+  };
+
+  if (opts.showWatershed){
+    drawRing(WATERSHED_RING);
+    ctx.fillStyle = 'rgba(183, 67, 28, 0.08)';
+    ctx.fill();
+    ctx.strokeStyle = '#B7431C';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  if (opts.showStates){
+    ctx.strokeStyle = '#8A9AA0';
+    ctx.lineWidth = 1.2;
+    STATES_GEOJSON.features.forEach(f => {
+      if (f.geometry.type === 'Polygon'){
+        f.geometry.coordinates.forEach(ring => { drawRing(ring); ctx.stroke(); });
+      } else if (f.geometry.type === 'MultiPolygon'){
+        f.geometry.coordinates.forEach(poly => poly.forEach(ring => { drawRing(ring); ctx.stroke(); }));
+      }
+    });
+  }
+
+  rows.forEach(rec => {
+    const [x, y] = xy(rec.lat, rec.lng);
+    if (rec.type === 'NPL'){
+      ctx.fillStyle = STATUS_COLOR[rec.st];
+      ctx.beginPath();
+      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = AOC_COLOR(rec.aocStatus);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillRect(-5, -5, 10, 10);
+      ctx.restore();
+    }
+  });
+
+  return { canvas, basemapDrawn, basemapUsed: basemap };
+}
+
+function ensurePdfLibraries(){
+  if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF failed to load');
+  const test = new window.jspdf.jsPDF();
+  if (typeof test.autoTable !== 'function') throw new Error('jsPDF-AutoTable failed to load');
+}
+
+function readPdfOptionsFromForm(){
+  const basemap = document.querySelector('input[name="pdf-basemap"]:checked')?.value || 'current';
+  const lakes = new Set();
+  document.querySelectorAll('#pdf-lakes input:checked').forEach(inp => lakes.add(inp.value));
+  if (!lakes.size) LAKES.forEach(l => lakes.add(l));
+  return {
+    basemap,
+    showNPL: $('pdf-npl').checked,
+    showAOC: $('pdf-aoc').checked,
+    state: $('pdf-state').value,
+    status: $('pdf-status').value,
+    search: $('pdf-search').value.trim(),
+    lakes,
+    showStates: $('pdf-states').checked,
+    showWatershed: $('pdf-watershed').checked,
+    includeRegister: $('pdf-register').checked
+  };
+}
+
+function syncPdfModalFromMap(){
+  document.querySelector('input[name="pdf-basemap"][value="current"]').checked = true;
+  $('pdf-npl').checked = showNPL;
+  $('pdf-aoc').checked = showAOC;
+  $('pdf-states').checked = showStatesLayer;
+  $('pdf-watershed').checked = showWatershedLayer;
+  $('pdf-state').value = $('f-state').value;
+  $('pdf-status').value = $('f-status').value;
+  $('pdf-search').value = $('f-search').value;
+  document.querySelectorAll('#pdf-lakes input').forEach(inp => {
+    inp.checked = activeLakes.has(inp.value);
+  });
+}
+
+function openPdfModal(){
+  syncPdfModalFromMap();
+  $('pdf-modal').classList.add('open');
+  $('pdf-modal').setAttribute('aria-hidden', 'false');
+}
+
+function closePdfModal(){
+  $('pdf-modal').classList.remove('open');
+  $('pdf-modal').setAttribute('aria-hidden', 'true');
+}
+
+async function exportPdfReport(pdfOpts){
+  const btn = $('pdf-generate');
+  const prevLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Generating PDF…';
+  try {
+    ensurePdfLibraries();
+    if (!pdfOpts.showNPL && !pdfOpts.showAOC) throw new Error('Select at least one dataset: NPL sites or Areas of Concern');
+    const rows = filterRecords({
+      showNPL: pdfOpts.showNPL,
+      showAOC: pdfOpts.showAOC,
+      state: pdfOpts.state,
+      status: pdfOpts.status,
+      search: pdfOpts.search,
+      lakes: pdfOpts.lakes
+    });
+    if (!rows.length) throw new Error('No records match the selected dataset options');
+
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    const { canvas, basemapDrawn, basemapUsed } = await renderMapToCanvas(1200, 700, pdfOpts, rows);
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 40;
+    let y = margin;
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(18);
+    pdf.setTextColor(20, 38, 46);
+    pdf.text('Great Lakes Superfund Atlas', margin, y);
+    y += 22;
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    pdf.setTextColor(90, 110, 120);
+    pdf.text('Map report — EPA NPL sites & Great Lakes Areas of Concern', margin, y);
+    y += 16;
+
+    const dateStr = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
+    pdf.text(`Generated: ${dateStr}`, margin, y);
+    y += 14;
+
+    pdf.setFontSize(9);
+    const filterLines = pdf.splitTextToSize(`Report options: ${describePdfOptions(pdfOpts)}`, pageW - margin * 2);
+    pdf.text(filterLines, margin, y);
+    y += filterLines.length * 11 + 6;
+
+    const nplCount = rows.filter(r => r.type === 'NPL').length;
+    const aocCount = rows.filter(r => r.type === 'AOC').length;
+    pdf.text(
+      `Records shown: ${rows.length}  ·  NPL: ${nplCount}  ·  AOC: ${aocCount}  ·  View: zoom ${zoom}, ${center.lat.toFixed(2)}°N ${Math.abs(center.lng).toFixed(2)}°W`,
+      margin, y
+    );
+    y += 16;
+
+    const imgW = pageW - margin * 2;
+    const imgH = Math.min((canvas.height / canvas.width) * imgW, 310);
+    pdf.addImage(imgData, 'JPEG', margin, y, imgW, imgH);
+    y += imgH + 10;
+
+    pdf.setFontSize(8);
+    pdf.setTextColor(90, 110, 120);
+    const legend = 'Legend: ● NPL cleanup ongoing · ● NPL construction complete · ● NPL deleted · ◆ AOC active · ◆ AOC delisted · — watershed boundary';
+    pdf.text(pdf.splitTextToSize(legend, pageW - margin * 2), margin, y);
+    y += 22;
+
+    if (basemapUsed !== 'none' && !basemapDrawn){
+      pdf.text('Note: Basemap tiles could not be loaded; map shows boundaries and markers only.', margin, y);
+      y += 12;
+    }
+    pdf.text('Creator: Zia Ahmed, PhD, Data and Visualization Scientist', margin, y);
+
+    if (pdfOpts.includeRegister){
+      pdf.addPage();
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(14);
+      pdf.setTextColor(20, 38, 46);
+      pdf.text('Site register', margin, margin);
+
+      const tableBody = rows.map(r => {
+        const statusTxt = r.type === 'NPL' ? (r.y + ' · ' + STATUS_LABEL[r.st]) : r.aocStatus;
+        const notesTxt = r.type === 'NPL' ? r.con.join(', ') : 'Great Lakes Area of Concern';
+        return [r.type, r.n, `${r.c}, ${r.s}`, r.lake, statusTxt, notesTxt];
+      });
+
+      pdf.autoTable({
+        startY: margin + 20,
+        head: [['Type', 'Site / AOC', 'City, State', 'Lake basin', 'Year / Status', 'Contaminants / notes']],
+        body: tableBody,
+        styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
+        headStyles: { fillColor: [20, 38, 46], textColor: [220, 231, 234] },
+        alternateRowStyles: { fillColor: [240, 246, 247] },
+        columnStyles: { 1: { cellWidth: 120 }, 5: { cellWidth: 140 } },
+        margin: { left: margin, right: margin },
+        didDrawPage: () => {
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(8);
+          pdf.setTextColor(90, 110, 120);
+          pdf.text(`Great Lakes Superfund Atlas · Page ${pdf.internal.getNumberOfPages()}`, margin, pageH - 20);
+        }
+      });
+    }
+
+    pdf.save(`great-lakes-superfund-map-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+    closePdfModal();
+  } catch (err) {
+    console.error(err);
+    const detail = err && err.message ? `\n\n(${err.message})` : '';
+    alert('PDF export failed.' + detail + '\n\nIf you opened this file directly, try serving it from a local web server instead.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prevLabel;
+  }
+}
+
 /* ================= CONTROLS ================= */
 const allStates = [...new Set(RECORDS.flatMap(r=>r.s.split('/')))].sort();
 allStates.forEach(st=>{
   const o=document.createElement('option'); o.value=st; o.textContent=st; $('f-state').appendChild(o);
+  const p=document.createElement('option'); p.value=st; p.textContent=st; $('pdf-state').appendChild(p);
 });
 LAKES.forEach(lk=>{
   const b=document.createElement('button');
@@ -589,6 +993,10 @@ LAKES.forEach(lk=>{
     render();
   });
   $('lake-chips').appendChild(b);
+  const lab=document.createElement('label');
+  lab.className='pdf-opt';
+  lab.innerHTML=`<input type="checkbox" value="${lk}" checked> ${lk}`;
+  $('pdf-lakes').appendChild(lab);
 });
 $('chip-npl').addEventListener('click', ()=>{ showNPL=!showNPL; $('chip-npl').setAttribute('aria-pressed',String(showNPL)); render(); });
 $('chip-aoc').addEventListener('click', ()=>{ showAOC=!showAOC; $('chip-aoc').setAttribute('aria-pressed',String(showAOC)); render(); });
@@ -614,6 +1022,14 @@ $('f-reset').addEventListener('click', ()=>{
     </div>`;
   map.setView([44.3,-84.0], 6);
   render();
+});
+
+$('btn-export-pdf').addEventListener('click', openPdfModal);
+$('pdf-cancel').addEventListener('click', closePdfModal);
+$('pdf-modal-backdrop').addEventListener('click', closePdfModal);
+$('pdf-generate').addEventListener('click', () => exportPdfReport(readPdfOptionsFromForm()));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('pdf-modal').classList.contains('open')) closePdfModal();
 });
 
 applyLayerVisibility();
