@@ -299,6 +299,8 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
       <legend>Figure appearance</legend>
       <div class="pdf-field"><label for="pdf-fig-title">Figure title</label>
         <input id="pdf-fig-title" type="text" value="Great Lakes Superfund Sites and Areas of Concern"></div>
+      <div class="pdf-field"><label for="pdf-data-source">Data source</label>
+        <input id="pdf-data-source" type="text" value="EPA Superfund NPL sites &amp; Great Lakes AOC program (July 2026)"></div>
       <div class="pdf-field"><label for="pdf-fig-size">Figure size (on page)</label>
         <select id="pdf-fig-size">
           <option value="small">Small — 4 × 2.5 in</option>
@@ -722,6 +724,27 @@ function getSymbolColor(rec, opts){
   return /delist/i.test(rec.aocStatus) ? c.aocDelisted : c.aocActive;
 }
 
+const WATERSHED_LABEL = 'Great Lakes Watershed Boundary';
+
+function watershedCentroid(){
+  let lng = 0, lat = 0;
+  WATERSHED_RING.forEach(p => { lng += p[0]; lat += p[1]; });
+  return [lat / WATERSHED_RING.length, lng / WATERSHED_RING.length];
+}
+
+function drawMapLabel(ctx, x, y, text){
+  ctx.font = 'bold 12px "Segoe UI", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = '#B7431C';
+  ctx.fillText(text, x, y);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+}
+
 function getLegendItems(opts){
   const c = opts.colorMode === 'custom' ? opts.customColors : {
     nplA: STATUS_COLOR.A, nplC: STATUS_COLOR.C, nplD: STATUS_COLOR.D,
@@ -738,10 +761,10 @@ function getLegendItems(opts){
     items.push({ shape: 'diamond', color: c.aocDelisted, label: 'AOC — delisted' });
   }
   if (opts.showWatershed){
-    items.push({ shape: 'line', color: '#B7431C', label: 'Watershed boundary' });
+    items.push({ shape: 'line', color: '#B7431C', label: WATERSHED_LABEL, dashed: true });
   }
   if (opts.showStates){
-    items.push({ shape: 'line', color: '#8A9AA0', label: 'State boundary' });
+    items.push({ shape: 'line', color: '#8A9AA0', label: 'State boundary', dashed: false });
   }
   return items;
 }
@@ -751,13 +774,15 @@ function drawLegendBox(ctx, width, height, opts){
   if (!items.length) return;
   const sz = SYMBOL_SIZES[opts.symbolSize];
   const pad = 10;
-  const rowH = Math.max(16, sz.r * 2 + 4);
-  const boxW = 220;
-  const boxH = pad * 2 + items.length * rowH + 14;
+  const rowH = Math.max(18, sz.r * 2 + 6);
+  ctx.font = '11px "Segoe UI", sans-serif';
+  const maxLabelW = Math.max(...items.map(it => ctx.measureText(it.label).width));
+  const boxW = Math.min(width - 24, Math.max(240, pad + sz.r * 2 + 14 + maxLabelW + pad));
+  const boxH = pad * 2 + items.length * rowH + 16;
   const x0 = width - boxW - 12;
   const y0 = height - boxH - 12;
 
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.fillStyle = 'rgba(255,255,255,0.94)';
   ctx.strokeStyle = '#C4CFD4';
   ctx.lineWidth = 1;
   ctx.fillRect(x0, y0, boxW, boxH);
@@ -769,8 +794,8 @@ function drawLegendBox(ctx, width, height, opts){
 
   ctx.font = '11px "Segoe UI", sans-serif';
   items.forEach((item, i) => {
-    const cy = y0 + pad + 18 + i * rowH + rowH / 2;
-    const ix = x0 + pad + sz.r;
+    const cy = y0 + pad + 20 + i * rowH + rowH / 2;
+    const ix = x0 + pad + sz.r + 2;
     if (item.shape === 'circle'){
       ctx.fillStyle = item.color;
       ctx.beginPath();
@@ -788,17 +813,21 @@ function drawLegendBox(ctx, width, height, opts){
       ctx.restore();
     } else {
       ctx.strokeStyle = item.color;
-      ctx.lineWidth = item.label.includes('Watershed') ? 2 : 1.2;
-      if (item.label.includes('Watershed')) ctx.setLineDash([5, 4]);
+      ctx.lineWidth = item.dashed ? 2 : 1.2;
+      if (item.dashed) ctx.setLineDash([5, 4]);
       ctx.beginPath();
-      ctx.moveTo(ix - 8, cy);
-      ctx.lineTo(ix + 8, cy);
+      ctx.moveTo(ix - 10, cy);
+      ctx.lineTo(ix + 10, cy);
       ctx.stroke();
       ctx.setLineDash([]);
     }
     ctx.fillStyle = '#14262E';
-    ctx.fillText(item.label, x0 + pad + sz.r * 2 + 10, cy + 4);
+    ctx.fillText(item.label, x0 + pad + sz.r * 2 + 14, cy + 4);
   });
+}
+
+function pdfCenterText(pdf, text, y, pageW){
+  pdf.text(text, (pageW - pdf.getTextWidth(text)) / 2, y);
 }
 
 function getCurrentBasemap(){
@@ -954,6 +983,12 @@ async function renderMapToCanvas(width, height, opts, rows){
     }
   });
 
+  if (opts.showWatershed){
+    const [clat, clng] = watershedCentroid();
+    const [lx, ly] = xy(clat, clng);
+    drawMapLabel(ctx, lx, ly, WATERSHED_LABEL);
+  }
+
   if (opts.showLegend) drawLegendBox(ctx, width, height, opts);
 
   return { canvas, basemapDrawn, basemapUsed: basemap };
@@ -982,6 +1017,7 @@ function readPdfOptionsFromForm(){
     showWatershed: $('pdf-watershed').checked,
     includeRegister: $('pdf-register').checked,
     figureTitle: $('pdf-fig-title').value.trim() || 'Great Lakes Superfund Sites and Areas of Concern',
+    dataSource: $('pdf-data-source').value.trim(),
     figureSize: $('pdf-fig-size').value,
     symbolSize: $('pdf-symbol-size').value,
     colorMode: $('pdf-color-mode').value,
@@ -1046,9 +1082,8 @@ async function exportPdfReport(pdfOpts){
     });
     if (!rows.length) throw new Error('No records match the selected dataset options');
 
-    const center = map.getCenter();
-    const zoom = map.getZoom();
-    const figDims = figureDimensions(pdfOpts, 792, 0, 612, 40);
+    const margin = 40;
+    const figDims = figureDimensions(pdfOpts, 792, margin, 612, margin);
     const canvasW = Math.round(figDims.w * 2.2);
     const canvasH = Math.round(figDims.h * 2.2);
     const { canvas, basemapDrawn, basemapUsed } = await renderMapToCanvas(canvasW, canvasH, pdfOpts, rows);
@@ -1058,69 +1093,58 @@ async function exportPdfReport(pdfOpts){
     const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
-    const margin = 40;
-    let y = margin;
 
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(18);
-    pdf.setTextColor(20, 38, 46);
-    pdf.text('Great Lakes Superfund Atlas', margin, y);
-    y += 22;
+    pdf.setFontSize(14);
+    const titleLines = pdf.splitTextToSize(pdfOpts.figureTitle, pageW - margin * 2);
+    const titleBlockH = titleLines.length * 16 + 10;
 
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(10);
-    pdf.setTextColor(90, 110, 120);
-    pdf.text('Map report — EPA NPL sites & Great Lakes Areas of Concern', margin, y);
-    y += 16;
-
-    const dateStr = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
-    pdf.text(`Generated: ${dateStr}`, margin, y);
-    y += 14;
-
     pdf.setFontSize(9);
-    const filterLines = pdf.splitTextToSize(`Report options: ${describePdfOptions(pdfOpts)}`, pageW - margin * 2);
-    pdf.text(filterLines, margin, y);
-    y += filterLines.length * 11 + 6;
+    const srcLines = pdfOpts.dataSource
+      ? pdf.splitTextToSize(`Data source: ${pdfOpts.dataSource}`, pageW - margin * 2)
+      : [];
+    const footerBlockH = srcLines.length * 11 + 8;
 
-    const nplCount = rows.filter(r => r.type === 'NPL').length;
-    const aocCount = rows.filter(r => r.type === 'AOC').length;
-    pdf.text(
-      `Records shown: ${rows.length}  ·  NPL: ${nplCount}  ·  AOC: ${aocCount}  ·  View: zoom ${zoom}, ${center.lat.toFixed(2)}°N ${Math.abs(center.lng).toFixed(2)}°W`,
-      margin, y
-    );
-    y += 18;
+    const dims = figureDimensions(pdfOpts, pageW, margin, pageH, margin);
+    const blockH = titleBlockH + dims.h + 12 + footerBlockH;
+    let y = Math.max(margin, (pageH - blockH) / 2);
 
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(12);
+    pdf.setFontSize(14);
     pdf.setTextColor(20, 38, 46);
-    pdf.text(pdfOpts.figureTitle, margin, y);
-    y += 14;
+    titleLines.forEach(line => {
+      pdfCenterText(pdf, line, y, pageW);
+      y += 16;
+    });
+    y += 4;
 
-    const dims = figureDimensions(pdfOpts, pageW, y, pageH, margin);
-    pdf.addImage(imgData, 'JPEG', margin, y, dims.w, dims.h);
-    y += dims.h + 8;
+    const imgX = (pageW - dims.w) / 2;
+    pdf.addImage(imgData, 'JPEG', imgX, y, dims.w, dims.h);
+    y += dims.h + 10;
 
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(8);
+    pdf.setFontSize(9);
     pdf.setTextColor(90, 110, 120);
-    const sizeLabel = { small:'4×2.5 in', medium:'6.5×4 in', large:'7.5×4.5 in', full:'full width' };
-    pdf.text(
-      `Figure size: ${sizeLabel[pdfOpts.figureSize] || pdfOpts.figureSize}  ·  Symbol size: ${pdfOpts.symbolSize}  ·  Legend: ${pdfOpts.showLegend ? 'on figure' : 'not shown'}`,
-      margin, y
-    );
-    y += 12;
-
     if (!pdfOpts.showLegend){
       const legendText = getLegendItems(pdfOpts).map(it => it.label).join(' · ');
-      if (legendText) pdf.text(pdf.splitTextToSize('Legend: ' + legendText, pageW - margin * 2), margin, y);
-      y += 14;
+      if (legendText){
+        pdf.splitTextToSize('Legend: ' + legendText, pageW - margin * 2).forEach(line => {
+          pdfCenterText(pdf, line, y, pageW);
+          y += 11;
+        });
+      }
     }
 
     if (basemapUsed !== 'none' && !basemapDrawn){
-      pdf.text('Note: Basemap tiles could not be loaded; map shows boundaries and markers only.', margin, y);
+      pdfCenterText(pdf, 'Note: Basemap tiles could not be loaded; map shows boundaries and markers only.', y, pageW);
       y += 12;
     }
-    pdf.text('Creator: Zia Ahmed, PhD, Data and Visualization Scientist', margin, y);
+
+    srcLines.forEach(line => {
+      pdfCenterText(pdf, line, y, pageW);
+      y += 11;
+    });
 
     if (pdfOpts.includeRegister){
       pdf.addPage();
