@@ -81,8 +81,11 @@ h2 small{font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spaci
 .pdf-modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
 .pdf-modal.open{display:flex}
 .pdf-modal-backdrop{position:absolute;inset:0;background:rgba(20,38,46,.55)}
-.pdf-modal-panel{position:relative;background:var(--panel);border:1px solid var(--hairline);max-width:560px;width:100%;
+.pdf-modal-panel{position:relative;background:var(--panel);border:1px solid var(--hairline);max-width:640px;width:100%;
   max-height:90vh;overflow:auto;padding:20px 22px 18px;box-shadow:0 12px 40px rgba(20,38,46,.25)}
+.pdf-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+.pdf-grid .pdf-field{margin-top:0}
+@media (max-width:520px){.pdf-grid{grid-template-columns:1fr}}
 .pdf-modal-panel h3{font-size:18px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--hairline)}
 .pdf-modal-panel fieldset{border:1px solid var(--hairline);padding:12px 14px 10px;margin-bottom:12px}
 .pdf-modal-panel legend{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;letter-spacing:.1em;
@@ -239,7 +242,7 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
     <div class="map-wrap">
       <div class="map-card">
         <div class="map-toolbar">
-          <button type="button" class="export-pdf" id="btn-export-pdf">Export PDF map report</button>
+          <button type="button" class="export-pdf" id="btn-export-pdf">Export map (PDF / PNG)</button>
         </div>
         <div class="map-stage">
           <div id="map" role="application" aria-label="Satellite map of Superfund sites and Areas of Concern in the Great Lakes watershed"></div>
@@ -259,7 +262,7 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
             </div>
           </div>
         </div>
-        <div class="map-note">Basemap: Esri World Imagery (satellite) / OpenStreetMap (street), switchable via the layer control bottom-right ·
+        <div class="map-note">Basemap: Esri World Imagery (satellite) · OpenStreetMap (street) · USA Topographic (Esri) — switchable via the layer control bottom-right ·
           Watershed boundary: uploaded <strong>Great Lakes Watershed Boundary</strong> KMZ, simplified for display ·
           Major tributaries: <strong>Great Lakes river network</strong> (<code>great_lakes_river_network.kmz</code>, HUC-2 region 04) ·
           State boundaries: U.S. Census Bureau cartographic boundaries (see footer note on the uploaded state file) ·
@@ -312,13 +315,14 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
 <div id="pdf-modal" class="pdf-modal" aria-hidden="true">
   <div class="pdf-modal-backdrop" id="pdf-modal-backdrop"></div>
   <div class="pdf-modal-panel" role="dialog" aria-modal="true" aria-labelledby="pdf-modal-title">
-    <h3 id="pdf-modal-title">Export PDF map report</h3>
+    <h3 id="pdf-modal-title">Export map</h3>
 
     <fieldset>
       <legend>Basemap</legend>
       <label class="pdf-opt"><input type="radio" name="pdf-basemap" value="current" checked> Match current map view</label>
       <label class="pdf-opt"><input type="radio" name="pdf-basemap" value="satellite"> Satellite (Esri World Imagery)</label>
       <label class="pdf-opt"><input type="radio" name="pdf-basemap" value="streets"> OpenStreetMap (street)</label>
+      <label class="pdf-opt"><input type="radio" name="pdf-basemap" value="topography"> USA Topographic (Esri)</label>
       <label class="pdf-opt"><input type="radio" name="pdf-basemap" value="none"> None (boundaries &amp; markers only)</label>
     </fieldset>
 
@@ -342,25 +346,80 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
     </fieldset>
 
     <fieldset>
-      <legend>Figure appearance</legend>
-      <div class="pdf-field"><label for="pdf-fig-title">Figure title</label>
-        <input id="pdf-fig-title" type="text" value="Great Lakes Superfund Sites and Areas of Concern"></div>
-      <div class="pdf-field"><label for="pdf-data-source">Data source</label>
-        <input id="pdf-data-source" type="text" value="EPA Superfund NPL sites &amp; Great Lakes AOC program (July 2026)"></div>
-      <div class="pdf-field"><label for="pdf-fig-size">Figure size (on page)</label>
-        <select id="pdf-fig-size">
-          <option value="small">Small — 4 × 2.5 in</option>
-          <option value="medium" selected>Medium — 6.5 × 4 in</option>
-          <option value="large">Large — 7.5 × 4.5 in</option>
-          <option value="full">Full width — use maximum page width</option>
-        </select></div>
-      <div class="pdf-field"><label for="pdf-symbol-size">Symbol size</label>
-        <select id="pdf-symbol-size">
-          <option value="small">Small</option>
-          <option value="medium" selected>Medium</option>
-          <option value="large">Large</option>
-        </select></div>
-      <div class="pdf-field"><label for="pdf-color-mode">Symbol colors</label>
+      <legend>Watershed boundary</legend>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-watershed" checked> Show watershed boundary</label>
+      <div class="pdf-grid">
+        <div class="pdf-field"><label for="pdf-ws-color">Line color</label>
+          <input type="color" id="pdf-ws-color" value="#B7431C"></div>
+        <div class="pdf-field"><label for="pdf-ws-width">Line thickness (px)</label>
+          <input type="number" id="pdf-ws-width" min="1" max="8" step="0.5" value="2"></div>
+        <div class="pdf-field"><label for="pdf-ws-style">Line type</label>
+          <select id="pdf-ws-style">
+            <option value="solid">Solid</option>
+            <option value="dashed" selected>Dashed</option>
+            <option value="dotted">Dotted</option>
+          </select></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>River network</legend>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-rivers" checked> Show major tributaries</label>
+      <div class="pdf-grid">
+        <div class="pdf-field"><label for="pdf-rv-color">Line color</label>
+          <input type="color" id="pdf-rv-color" value="#1565D8"></div>
+        <div class="pdf-field"><label for="pdf-rv-width">Line thickness (px)</label>
+          <input type="number" id="pdf-rv-width" min="0.5" max="6" step="0.5" value="2"></div>
+        <div class="pdf-field"><label for="pdf-rv-style">Line type</label>
+          <select id="pdf-rv-style">
+            <option value="solid" selected>Solid</option>
+            <option value="dashed">Dashed</option>
+            <option value="dotted">Dotted</option>
+          </select></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>NPL site symbols</legend>
+      <div class="pdf-grid">
+        <div class="pdf-field"><label for="pdf-npl-shape">Symbol type</label>
+          <select id="pdf-npl-shape">
+            <option value="circle" selected>Circle</option>
+            <option value="square">Square</option>
+            <option value="diamond">Diamond</option>
+            <option value="triangle">Triangle</option>
+          </select></div>
+        <div class="pdf-field"><label for="pdf-npl-size">Symbol size</label>
+          <select id="pdf-npl-size">
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+          </select></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>AOC symbols</legend>
+      <div class="pdf-grid">
+        <div class="pdf-field"><label for="pdf-aoc-shape">Symbol type</label>
+          <select id="pdf-aoc-shape">
+            <option value="diamond" selected>Diamond</option>
+            <option value="circle">Circle</option>
+            <option value="square">Square</option>
+            <option value="triangle">Triangle</option>
+          </select></div>
+        <div class="pdf-field"><label for="pdf-aoc-size">Symbol size</label>
+          <select id="pdf-aoc-size">
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+          </select></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Symbol colors</legend>
+      <div class="pdf-field"><label for="pdf-color-mode">Color mode</label>
         <select id="pdf-color-mode">
           <option value="default" selected>Default (color by status)</option>
           <option value="custom">Custom colors</option>
@@ -372,21 +431,52 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
         <label class="pdf-color-row">AOC — active <input type="color" id="pdf-col-aoc-a" value="#14707E"></label>
         <label class="pdf-color-row">AOC — delisted <input type="color" id="pdf-col-aoc-d" value="#2F7D4E"></label>
       </div>
-      <label class="pdf-opt"><input type="checkbox" id="pdf-legend" checked> Draw legend on figure</label>
     </fieldset>
 
     <fieldset>
-      <legend>Map layers &amp; report</legend>
+      <legend>Lake names</legend>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-lake-labels" checked> Show lake names</label>
+      <div class="pdf-grid">
+        <div class="pdf-field"><label for="pdf-lake-font">Font size (px)</label>
+          <input type="number" id="pdf-lake-font" min="8" max="28" step="1" value="12"></div>
+        <div class="pdf-field"><label for="pdf-lake-color">Font color</label>
+          <input type="color" id="pdf-lake-color" value="#FFFFFF"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Figure appearance</legend>
+      <div class="pdf-field"><label for="pdf-fig-title">Figure title</label>
+        <input id="pdf-fig-title" type="text" value="Great Lakes Superfund Sites and Areas of Concern"></div>
+      <div class="pdf-field"><label for="pdf-data-source">Data source</label>
+        <input id="pdf-data-source" type="text" value="EPA Superfund NPL sites &amp; Great Lakes AOC program (July 2026)"></div>
       <label class="pdf-opt"><input type="checkbox" id="pdf-states" checked> State boundaries</label>
-      <label class="pdf-opt"><input type="checkbox" id="pdf-watershed" checked> Watershed boundary</label>
-      <label class="pdf-opt"><input type="checkbox" id="pdf-rivers" checked> Major tributaries</label>
-      <label class="pdf-opt"><input type="checkbox" id="pdf-lake-labels" checked> Lake labels</label>
-      <label class="pdf-opt"><input type="checkbox" id="pdf-register" checked> Include site register table</label>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-legend" checked> Draw legend on figure</label>
+      <div class="pdf-field"><label for="pdf-fig-size">PDF figure size (on page)</label>
+        <select id="pdf-fig-size">
+          <option value="small">Small — 4 × 2.5 in</option>
+          <option value="medium" selected>Medium — 6.5 × 4 in</option>
+          <option value="large">Large — 7.5 × 4.5 in</option>
+          <option value="full">Full width — use maximum page width</option>
+        </select></div>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-register" checked> Include site register table (PDF only)</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>PNG resolution</legend>
+      <div class="pdf-field"><label for="pdf-png-width">Output width (pixels)</label>
+        <select id="pdf-png-width">
+          <option value="1280">1280 px — screen / web</option>
+          <option value="1920">1920 px — HD</option>
+          <option value="2400" selected>2400 px — high quality</option>
+          <option value="3600">3600 px — print / publication</option>
+        </select></div>
     </fieldset>
 
     <div class="pdf-modal-actions">
       <button type="button" class="pdf-cancel" id="pdf-cancel">Cancel</button>
-      <button type="button" class="export-pdf" id="pdf-generate">Generate PDF</button>
+      <button type="button" class="export-pdf" id="export-png">Export PNG</button>
+      <button type="button" class="export-pdf" id="export-pdf">Export PDF</button>
     </div>
   </div>
 </div>
@@ -663,8 +753,15 @@ const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/servi
 const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution:'&copy; OpenStreetMap contributors', maxZoom:19
 });
+const topography = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/{z}/{y}/{x}', {
+  attribution:'Tiles &copy; Esri — USGS, NOAA', maxZoom:16
+});
 satellite.addTo(map);
-L.control.layers({ "Satellite (Esri World Imagery)": satellite, "OpenStreetMap (street)": streets }, null, {position:'bottomright'}).addTo(map);
+L.control.layers({
+  'Satellite (Esri World Imagery)': satellite,
+  'OpenStreetMap (street)': streets,
+  'USA Topographic (Esri)': topography
+}, null, {position:'bottomright'}).addTo(map);
 
 const watershedLayer = L.geoJSON(WATERSHED_GEOJSON, {
   style: { color:'#B7431C', weight:2, dashArray:'7 5', fillColor:'#B7431C', fillOpacity:0.05 }
@@ -975,48 +1072,71 @@ function getSymbolColor(rec, opts){
   return /delist/i.test(rec.aocStatus) ? c.aocDelisted : c.aocActive;
 }
 
-const WATERSHED_LABEL = 'Great Lakes Watershed Boundary';
-
-function watershedCentroid(){
-  let lng = 0, lat = 0;
-  WATERSHED_RING.forEach(p => { lng += p[0]; lat += p[1]; });
-  return [lat / WATERSHED_RING.length, lng / WATERSHED_RING.length];
+function applyCanvasLineStyle(ctx, style, width){
+  ctx.lineWidth = width;
+  if (style === 'dashed') ctx.setLineDash([Math.max(width * 3, 6), Math.max(width * 2, 4)]);
+  else if (style === 'dotted') ctx.setLineDash([Math.max(width, 2), Math.max(width * 1.5, 3)]);
+  else ctx.setLineDash([]);
 }
 
-function drawLakeLabel(ctx, x, y, text){
-  ctx.font = '700 12px "Segoe UI", sans-serif';
+function hexToRgba(hex, alpha){
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  const n = parseInt(full, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+function getNplSymbolSize(opts){ return SYMBOL_SIZES[opts.nplSymbolSize] || SYMBOL_SIZES.medium; }
+function getAocSymbolSize(opts){ return SYMBOL_SIZES[opts.aocSymbolSize] || SYMBOL_SIZES.medium; }
+
+function drawSiteSymbol(ctx, x, y, rec, opts){
+  const isNpl = rec.type === 'NPL';
+  const sz = isNpl ? getNplSymbolSize(opts) : getAocSymbolSize(opts);
+  const shape = isNpl ? opts.nplSymbolShape : opts.aocSymbolShape;
+  const color = getSymbolColor(rec, opts);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = Math.max(1.5, sz.r * 0.35);
+  const h = sz.half;
+  ctx.beginPath();
+  if (shape === 'circle'){
+    ctx.arc(x, y, sz.r, 0, Math.PI * 2);
+  } else if (shape === 'square'){
+    ctx.rect(x - h, y - h, h * 2, h * 2);
+  } else if (shape === 'diamond'){
+    ctx.moveTo(x, y - h * 1.15); ctx.lineTo(x + h * 1.15, y); ctx.lineTo(x, y + h * 1.15); ctx.lineTo(x - h * 1.15, y);
+    ctx.closePath();
+  } else {
+    ctx.moveTo(x, y - h * 1.2); ctx.lineTo(x + h * 1.1, y + h * 0.9); ctx.lineTo(x - h * 1.1, y + h * 0.9);
+    ctx.closePath();
+  }
+  ctx.fill();
+  ctx.stroke();
+}
+
+function drawLakeLabel(ctx, x, y, text, opts){
+  const size = opts.lakeLabelFontSize || 12;
+  ctx.font = `700 ${size}px "Segoe UI", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = opts.lakeLabelColor || '#FFFFFF';
   ctx.fillText(text, x, y);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
 }
 
-function drawRiverLine(ctx, coords, xy){
+function drawRiverLine(ctx, coords, xy, opts){
   ctx.beginPath();
   coords.forEach((pt, i) => {
     const [x, y] = xy(pt[1], pt[0]);
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   });
-  ctx.strokeStyle = RIVER_COLOR;
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = opts.riverColor || RIVER_COLOR;
+  applyCanvasLineStyle(ctx, opts.riverLineStyle || 'solid', opts.riverLineWidth || 2);
   ctx.globalAlpha = 0.92;
   ctx.stroke();
+  ctx.setLineDash([]);
   ctx.globalAlpha = 1;
-}
-
-function drawMapLabel(ctx, x, y, text){
-  ctx.font = 'bold 14px "Segoe UI", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineWidth = 5;
-  ctx.strokeStyle = 'rgba(255,255,255,0.98)';
-  ctx.strokeText(text, x, y);
-  ctx.fillStyle = '#B7431C';
-  ctx.fillText(text, x, y);
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
 }
 
 function getLegendItems(opts){
@@ -1024,24 +1144,26 @@ function getLegendItems(opts){
     nplA: STATUS_COLOR.A, nplC: STATUS_COLOR.C, nplD: STATUS_COLOR.D,
     aocActive: '#14707E', aocDelisted: '#2F7D4E'
   };
+  const nplShape = (opts.nplSymbolShape || 'circle').replace(/^\w/, ch => ch.toUpperCase());
+  const aocShape = (opts.aocSymbolShape || 'diamond').replace(/^\w/, ch => ch.toUpperCase());
   const items = [];
   if (opts.showNPL){
-    items.push({ shape: 'circle', color: c.nplA, label: 'NPL — cleanup ongoing' });
-    items.push({ shape: 'circle', color: c.nplC, label: 'NPL — construction complete' });
-    items.push({ shape: 'circle', color: c.nplD, label: 'NPL — deleted' });
+    items.push({ shape: opts.nplSymbolShape || 'circle', color: c.nplA, label: `NPL — cleanup ongoing (${nplShape})` });
+    items.push({ shape: opts.nplSymbolShape || 'circle', color: c.nplC, label: `NPL — construction complete (${nplShape})` });
+    items.push({ shape: opts.nplSymbolShape || 'circle', color: c.nplD, label: `NPL — deleted (${nplShape})` });
   }
   if (opts.showAOC){
-    items.push({ shape: 'diamond', color: c.aocActive, label: 'AOC — active' });
-    items.push({ shape: 'diamond', color: c.aocDelisted, label: 'AOC — delisted' });
+    items.push({ shape: opts.aocSymbolShape || 'diamond', color: c.aocActive, label: `AOC — active (${aocShape})` });
+    items.push({ shape: opts.aocSymbolShape || 'diamond', color: c.aocDelisted, label: `AOC — delisted (${aocShape})` });
   }
   if (opts.showWatershed){
-    items.push({ shape: 'line', color: '#B7431C', label: WATERSHED_LABEL, dashed: true });
+    items.push({ shape: 'line', color: opts.watershedColor || '#B7431C', label: 'Watershed boundary', dashed: opts.watershedLineStyle === 'dashed', dotted: opts.watershedLineStyle === 'dotted' });
   }
   if (opts.showStates){
     items.push({ shape: 'line', color: '#8A9AA0', label: 'State boundary', dashed: false });
   }
   if (opts.showRivers){
-    items.push({ shape: 'line', color: RIVER_COLOR, label: 'Major tributaries', dashed: false });
+    items.push({ shape: 'line', color: opts.riverColor || RIVER_COLOR, label: 'Major tributaries', dashed: opts.riverLineStyle === 'dashed', dotted: opts.riverLineStyle === 'dotted' });
   }
   return items;
 }
@@ -1049,7 +1171,7 @@ function getLegendItems(opts){
 function drawLegendBox(ctx, width, height, opts){
   const items = getLegendItems(opts);
   if (!items.length) return;
-  const mapSz = SYMBOL_SIZES[opts.symbolSize] || SYMBOL_SIZES.medium;
+  const mapSz = getNplSymbolSize(opts);
   const sz = { r: Math.max(mapSz.r + 3, 8), half: Math.max(mapSz.half + 2, 7) };
   const pad = 16;
   const rowH = Math.max(24, sz.r * 2 + 12);
@@ -1092,24 +1214,25 @@ function drawLegendBox(ctx, width, height, opts){
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 1.5;
       ctx.stroke();
-    } else if (item.shape === 'diamond'){
-      ctx.fillStyle = item.color;
-      ctx.save();
-      ctx.translate(ix, cy);
-      ctx.rotate(Math.PI / 4);
-      ctx.fillRect(-sz.half, -sz.half, sz.half * 2, sz.half * 2);
-      ctx.restore();
-      ctx.save();
-      ctx.translate(ix, cy);
-      ctx.rotate(Math.PI / 4);
-      ctx.strokeStyle = '#14262E';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(-sz.half, -sz.half, sz.half * 2, sz.half * 2);
-      ctx.restore();
+    } else if (item.shape === 'square' || item.shape === 'diamond' || item.shape === 'triangle'){
+      drawSiteSymbol(ctx, ix, cy, {
+        type: item.label.includes('AOC') ? 'AOC' : 'NPL',
+        st: item.label.includes('construction complete') ? 'C' : item.label.includes('deleted') || item.label.includes('delisted') ? 'D' : 'A',
+        aocStatus: item.label.includes('delisted') ? 'Delisted' : 'Active'
+      }, {
+        colorMode: 'custom',
+        customColors: { nplA: item.color, nplC: item.color, nplD: item.color, aocActive: item.color, aocDelisted: item.color },
+        nplSymbolShape: item.shape,
+        aocSymbolShape: item.shape,
+        nplSymbolSize: opts.nplSymbolSize,
+        aocSymbolSize: opts.aocSymbolSize
+      });
     } else {
       ctx.strokeStyle = item.color;
-      ctx.lineWidth = item.dashed ? 3 : 2;
+      ctx.lineWidth = item.dashed || item.dotted ? 3 : 2;
       if (item.dashed) ctx.setLineDash([6, 4]);
+      else if (item.dotted) ctx.setLineDash([2, 4]);
+      else ctx.setLineDash([]);
       ctx.beginPath();
       ctx.moveTo(ix - 14, cy);
       ctx.lineTo(ix + 14, cy);
@@ -1127,9 +1250,22 @@ function pdfCenterText(pdf, text, y, pageW){
 }
 
 function getCurrentBasemap(){
-  if (map.hasLayer(streets) && !map.hasLayer(satellite)) return 'streets';
+  if (map.hasLayer(topography) && !map.hasLayer(satellite) && !map.hasLayer(streets)) return 'topography';
+  if (map.hasLayer(streets) && !map.hasLayer(satellite) && !map.hasLayer(topography)) return 'streets';
   if (map.hasLayer(satellite)) return 'satellite';
+  if (map.hasLayer(topography)) return 'topography';
   return 'none';
+}
+
+function basemapTileUrl(basemap, z, y, x){
+  const subs = ['a', 'b', 'c'];
+  if (basemap === 'satellite')
+    return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+  if (basemap === 'topography')
+    return `https://server.arcgisonline.com/ArcGIS/rest/services/USA_Topo_Maps/MapServer/tile/${z}/${y}/${x}`;
+  if (basemap === 'streets')
+    return `https://${subs[(x + y) % 3]}.tile.openstreetmap.org/${z}/${x}/${y}.png`;
+  return null;
 }
 
 function describePdfOptions(opts){
@@ -1142,9 +1278,10 @@ function describePdfOptions(opts){
   if (!opts.showAOC) parts.push('AOCs excluded');
   if (!opts.showStates) parts.push('State boundaries hidden');
   if (!opts.showWatershed) parts.push('Watershed boundary hidden');
-  const basemapLabels = { none:'No basemap', satellite:'Satellite (Esri)', streets:'OpenStreetMap', current:'Current map basemap' };
+  const basemapLabels = { none:'No basemap', satellite:'Satellite (Esri)', streets:'OpenStreetMap', topography:'USA Topographic (Esri)', current:'Current map basemap' };
   parts.push(`Basemap: ${basemapLabels[opts.basemap] || opts.basemap}`);
-  parts.push(`Symbol size: ${opts.symbolSize}`);
+  parts.push(`NPL symbol: ${opts.nplSymbolShape}, ${opts.nplSymbolSize}`);
+  parts.push(`AOC symbol: ${opts.aocSymbolShape}, ${opts.aocSymbolSize}`);
   parts.push(`Colors: ${opts.colorMode === 'custom' ? 'Custom' : 'Default'}`);
   if (opts.figureTitle) parts.push(`Figure: "${opts.figureTitle}"`);
   if (selectedKey){
@@ -1186,13 +1323,11 @@ async function drawBasemapTiles(ctx, width, height, basemap){
   const xMax = Math.min(n - 1, Math.floor((east + 180) / 360 * n));
   const yMin = Math.max(0, Math.floor((1 - Math.log(Math.tan(north * Math.PI / 180) + 1 / Math.cos(north * Math.PI / 180)) / Math.PI) / 2 * n));
   const yMax = Math.min(n - 1, Math.floor((1 - Math.log(Math.tan(south * Math.PI / 180) + 1 / Math.cos(south * Math.PI / 180)) / Math.PI) / 2 * n));
-  const subs = ['a', 'b', 'c'];
   let drewAny = false;
   for (let x = xMin; x <= xMax; x++){
     for (let y = yMin; y <= yMax; y++){
-      const url = basemap === 'satellite'
-        ? `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`
-        : `https://${subs[(x + y) % 3]}.tile.openstreetmap.org/${z}/${x}/${y}.png`;
+      const url = basemapTileUrl(basemap, z, y, x);
+      if (!url) continue;
       try {
         const img = await loadTileImage(url);
         const tl = xy(tileLat(y, z), tileLng(x, z));
@@ -1233,7 +1368,6 @@ async function renderMapToCanvas(width, height, opts, rows){
 
   const basemap = opts.basemap === 'current' ? getCurrentBasemap() : opts.basemap;
   const basemapDrawn = await drawBasemapTiles(ctx, width, height, basemap);
-  const sz = SYMBOL_SIZES[opts.symbolSize] || SYMBOL_SIZES.medium;
 
   const drawRing = ring => {
     ctx.beginPath();
@@ -1246,11 +1380,10 @@ async function renderMapToCanvas(width, height, opts, rows){
 
   if (opts.showWatershed){
     drawRing(WATERSHED_RING);
-    ctx.fillStyle = 'rgba(183, 67, 28, 0.08)';
+    ctx.fillStyle = hexToRgba(opts.watershedColor || '#B7431C', 0.08);
     ctx.fill();
-    ctx.strokeStyle = '#B7431C';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([7, 5]);
+    ctx.strokeStyle = opts.watershedColor || '#B7431C';
+    applyCanvasLineStyle(ctx, opts.watershedLineStyle || 'dashed', opts.watershedLineWidth || 2);
     ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -1269,43 +1402,21 @@ async function renderMapToCanvas(width, height, opts, rows){
 
   if (opts.showRivers && riversGeoJSON){
     riversGeoJSON.features.forEach(f => {
-      if (f.geometry.type === 'LineString') drawRiverLine(ctx, f.geometry.coordinates, xy);
+      if (f.geometry.type === 'LineString') drawRiverLine(ctx, f.geometry.coordinates, xy, opts);
       else if (f.geometry.type === 'MultiLineString')
-        f.geometry.coordinates.forEach(line => drawRiverLine(ctx, line, xy));
+        f.geometry.coordinates.forEach(line => drawRiverLine(ctx, line, xy, opts));
     });
   }
 
   rows.forEach(rec => {
     const [x, y] = xy(rec.lat, rec.lng);
-    const color = getSymbolColor(rec, opts);
-    if (rec.type === 'NPL'){
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, sz.r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = Math.max(1.5, sz.r * 0.3);
-      ctx.stroke();
-    } else {
-      ctx.fillStyle = color;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(Math.PI / 4);
-      ctx.fillRect(-sz.half, -sz.half, sz.half * 2, sz.half * 2);
-      ctx.restore();
-    }
+    drawSiteSymbol(ctx, x, y, rec, opts);
   });
-
-  if (opts.showWatershed){
-    const [clat, clng] = watershedCentroid();
-    const [lx, ly] = xy(clat, clng);
-    drawMapLabel(ctx, lx, ly, WATERSHED_LABEL);
-  }
 
   if (opts.showLakeLabels){
     LAKE_LABELS.forEach(lk => {
       const [lx, ly] = xy(lk.lat, lk.lng);
-      drawLakeLabel(ctx, lx, ly, lk.name);
+      drawLakeLabel(ctx, lx, ly, lk.name, opts);
     });
   }
 
@@ -1320,7 +1431,7 @@ function ensurePdfLibraries(){
   if (typeof test.autoTable !== 'function') throw new Error('jsPDF-AutoTable failed to load');
 }
 
-function readPdfOptionsFromForm(){
+function readExportOptionsFromForm(){
   const basemap = document.querySelector('input[name="pdf-basemap"]:checked')?.value || 'current';
   const lakes = new Set();
   document.querySelectorAll('#pdf-lakes input:checked').forEach(inp => lakes.add(inp.value));
@@ -1341,10 +1452,22 @@ function readPdfOptionsFromForm(){
     figureTitle: $('pdf-fig-title').value.trim() || 'Great Lakes Superfund Sites and Areas of Concern',
     dataSource: $('pdf-data-source').value.trim(),
     figureSize: $('pdf-fig-size').value,
-    symbolSize: $('pdf-symbol-size').value,
+    pngWidth: parseInt($('pdf-png-width').value, 10) || 2400,
+    nplSymbolShape: $('pdf-npl-shape').value,
+    aocSymbolShape: $('pdf-aoc-shape').value,
+    nplSymbolSize: $('pdf-npl-size').value,
+    aocSymbolSize: $('pdf-aoc-size').value,
     colorMode: $('pdf-color-mode').value,
     customColors: readCustomColorsFromForm(),
-    showLegend: $('pdf-legend').checked
+    showLegend: $('pdf-legend').checked,
+    watershedColor: $('pdf-ws-color').value,
+    watershedLineWidth: parseFloat($('pdf-ws-width').value) || 2,
+    watershedLineStyle: $('pdf-ws-style').value,
+    riverColor: $('pdf-rv-color').value,
+    riverLineWidth: parseFloat($('pdf-rv-width').value) || 2,
+    riverLineStyle: $('pdf-rv-style').value,
+    lakeLabelFontSize: parseInt($('pdf-lake-font').value, 10) || 12,
+    lakeLabelColor: $('pdf-lake-color').value
   };
 }
 
@@ -1388,30 +1511,78 @@ function closePdfModal(){
   $('pdf-modal').setAttribute('aria-hidden', 'true');
 }
 
-async function exportPdfReport(pdfOpts){
-  const btn = $('pdf-generate');
+async function getExportRows(opts){
+  if (!opts.showNPL && !opts.showAOC) throw new Error('Select at least one dataset: NPL sites or Areas of Concern');
+  if (opts.showRivers) await ensureRiversData();
+  const rows = filterRecords({
+    showNPL: opts.showNPL,
+    showAOC: opts.showAOC,
+    state: opts.state,
+    status: opts.status,
+    search: opts.search,
+    lakes: opts.lakes
+  });
+  if (!rows.length) throw new Error('No records match the selected dataset options');
+  return rows;
+}
+
+function pngCanvasDimensions(opts){
+  const bounds = map.getBounds();
+  const west = bounds.getWest(), east = bounds.getEast(), north = bounds.getNorth(), south = bounds.getSouth();
+  const aspect = (east - west) / Math.max(north - south, 0.01);
+  const width = opts.pngWidth;
+  const height = Math.round(width / aspect);
+  return { width, height };
+}
+
+async function exportPngReport(opts){
+  const btn = $('export-png');
   const prevLabel = btn.textContent;
   btn.disabled = true;
+  $('export-pdf').disabled = true;
+  btn.textContent = 'Generating PNG…';
+  try {
+    const rows = await getExportRows(opts);
+    const { width, height } = pngCanvasDimensions(opts);
+    const { canvas } = await renderMapToCanvas(width, height, opts, rows);
+    await new Promise((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (!blob) { reject(new Error('PNG encoding failed')); return; }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `great-lakes-superfund-map-${new Date().toISOString().slice(0, 10)}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        resolve();
+      }, 'image/png');
+    });
+    closePdfModal();
+  } catch (err) {
+    console.error(err);
+    alert('PNG export failed.' + (err.message ? `\n\n(${err.message})` : ''));
+  } finally {
+    btn.disabled = false;
+    $('export-pdf').disabled = false;
+    btn.textContent = prevLabel;
+  }
+}
+
+async function exportPdfReport(opts){
+  const btn = $('export-pdf');
+  const prevLabel = btn.textContent;
+  btn.disabled = true;
+  $('export-png').disabled = true;
   btn.textContent = 'Generating PDF…';
   try {
     ensurePdfLibraries();
-    if (!pdfOpts.showNPL && !pdfOpts.showAOC) throw new Error('Select at least one dataset: NPL sites or Areas of Concern');
-    if (pdfOpts.showRivers) await ensureRiversData();
-    const rows = filterRecords({
-      showNPL: pdfOpts.showNPL,
-      showAOC: pdfOpts.showAOC,
-      state: pdfOpts.state,
-      status: pdfOpts.status,
-      search: pdfOpts.search,
-      lakes: pdfOpts.lakes
-    });
-    if (!rows.length) throw new Error('No records match the selected dataset options');
+    const rows = await getExportRows(opts);
 
     const margin = 40;
-    const figDims = figureDimensions(pdfOpts, 792, margin, 612, margin);
+    const figDims = figureDimensions(opts, 792, margin, 612, margin);
     const canvasW = Math.round(figDims.w * 2.2);
     const canvasH = Math.round(figDims.h * 2.2);
-    const { canvas, basemapDrawn, basemapUsed } = await renderMapToCanvas(canvasW, canvasH, pdfOpts, rows);
+    const { canvas, basemapDrawn, basemapUsed } = await renderMapToCanvas(canvasW, canvasH, opts, rows);
     const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
     const { jsPDF } = window.jspdf;
@@ -1421,17 +1592,17 @@ async function exportPdfReport(pdfOpts){
 
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(14);
-    const titleLines = pdf.splitTextToSize(pdfOpts.figureTitle, pageW - margin * 2);
+    const titleLines = pdf.splitTextToSize(opts.figureTitle, pageW - margin * 2);
     const titleBlockH = titleLines.length * 16 + 10;
 
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(9);
-    const srcLines = pdfOpts.dataSource
-      ? pdf.splitTextToSize(`Data source: ${pdfOpts.dataSource}`, pageW - margin * 2)
+    const srcLines = opts.dataSource
+      ? pdf.splitTextToSize(`Data source: ${opts.dataSource}`, pageW - margin * 2)
       : [];
     const footerBlockH = srcLines.length * 11 + 8;
 
-    const dims = figureDimensions(pdfOpts, pageW, margin, pageH, margin);
+    const dims = figureDimensions(opts, pageW, margin, pageH, margin);
     const blockH = titleBlockH + dims.h + 12 + footerBlockH;
     let y = Math.max(margin, (pageH - blockH) / 2);
 
@@ -1451,7 +1622,7 @@ async function exportPdfReport(pdfOpts){
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(9);
     pdf.setTextColor(90, 110, 120);
-    if (!pdfOpts.showLegend){
+    if (!opts.showLegend){
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(10);
       pdf.setTextColor(20, 38, 46);
@@ -1460,7 +1631,7 @@ async function exportPdfReport(pdfOpts){
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(9);
       pdf.setTextColor(60, 70, 75);
-      getLegendItems(pdfOpts).forEach(item => {
+      getLegendItems(opts).forEach(item => {
         pdfCenterText(pdf, `• ${item.label}`, y, pageW);
         y += 12;
       });
@@ -1477,7 +1648,7 @@ async function exportPdfReport(pdfOpts){
       y += 11;
     });
 
-    if (pdfOpts.includeRegister){
+    if (opts.includeRegister){
       pdf.addPage();
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(14);
@@ -1516,6 +1687,7 @@ async function exportPdfReport(pdfOpts){
     alert('PDF export failed.' + detail + '\n\nIf you opened this file directly, try serving it from a local web server instead.');
   } finally {
     btn.disabled = false;
+    $('export-png').disabled = false;
     btn.textContent = prevLabel;
   }
 }
@@ -1567,7 +1739,8 @@ $('btn-export-pdf').addEventListener('click', openPdfModal);
 $('pdf-cancel').addEventListener('click', closePdfModal);
 $('pdf-modal-backdrop').addEventListener('click', closePdfModal);
 $('pdf-color-mode').addEventListener('change', togglePdfCustomColors);
-$('pdf-generate').addEventListener('click', () => exportPdfReport(readPdfOptionsFromForm()));
+$('export-png').addEventListener('click', () => exportPngReport(readExportOptionsFromForm()));
+$('export-pdf').addEventListener('click', () => exportPdfReport(readExportOptionsFromForm()));
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && $('pdf-modal').classList.contains('open')) closePdfModal();
 });

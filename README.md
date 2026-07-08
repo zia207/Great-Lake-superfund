@@ -48,6 +48,8 @@ Then visit http://localhost:8000
 - Downloadable contaminant database (CSV or Excel) of all site–contaminant relationships
 - Major tributaries map layer with toggle
 - Prominent lake basin labels on the map
+- Map export as **PDF** or **PNG** with customizable styling (basemap, watershed, rivers, symbols, lake labels)
+- **USA Topographic** basemap (Esri) alongside satellite and street layers
 
 ## Creator
 
