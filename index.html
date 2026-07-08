@@ -64,6 +64,14 @@ h2 small{font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spaci
 
 .map-wrap{display:grid;grid-template-columns:2fr 1fr;gap:14px}
 .map-card{background:var(--panel);border:1px solid var(--hairline);padding:10px}
+.map-stage{position:relative}
+.map-legend{position:absolute;top:10px;right:10px;z-index:1000;background:rgba(255,255,255,.96);
+  border:1px solid var(--hairline);padding:10px 12px;box-shadow:0 2px 10px rgba(20,38,46,.18);
+  font-size:12px;line-height:1.45;max-width:260px;pointer-events:none}
+.map-legend strong{display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);
+  font-family:ui-monospace,Consolas,monospace;margin-bottom:6px}
+.map-legend .legend{margin-top:0;flex-direction:column;gap:5px;font-size:12px}
+.map-legend .legend span{display:block}
 .map-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
 .export-pdf{background:var(--lake);color:#fff;border:none;padding:8px 14px;cursor:pointer;
   font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
@@ -94,8 +102,7 @@ h2 small{font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spaci
 .pdf-cancel:hover{color:var(--ink);border-color:var(--ink)}
 #map{width:100%;height:560px;background:#DDE6E8}
 .lake-label-icon{background:transparent;border:none}
-.lake-label{font:800 clamp(12px,1.7vw,18px)/1.05 "Segoe UI",system-ui,sans-serif;letter-spacing:.12em;color:#FFF;
-  text-shadow:0 0 14px rgba(0,0,0,.95),0 0 5px rgba(0,0,0,.9),0 2px 8px rgba(0,0,0,.85);
+.lake-label{font:700 clamp(10px,1.25vw,14px)/1.05 "Segoe UI",system-ui,sans-serif;letter-spacing:.1em;color:#FFF;
   white-space:nowrap;pointer-events:none;transform:translate(-50%,-50%)}
 .map-note{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--steel);margin-top:6px;line-height:1.5}
 .chem-inv{margin-top:12px}
@@ -234,8 +241,25 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
         <div class="map-toolbar">
           <button type="button" class="export-pdf" id="btn-export-pdf">Export PDF map report</button>
         </div>
-        <div id="map" role="application" aria-label="Satellite map of Superfund sites and Areas of Concern in the Great Lakes watershed"></div>
-        <div class="map-note">Basemap: Esri World Imagery (satellite) / OpenStreetMap (street), switchable via the layer control top-right ·
+        <div class="map-stage">
+          <div id="map" role="application" aria-label="Satellite map of Superfund sites and Areas of Concern in the Great Lakes watershed"></div>
+          <div class="map-legend" aria-label="Map legend">
+            <strong>Legend</strong>
+            <div class="legend">
+              <span><span class="dot" style="background:#B7431C"></span>NPL — cleanup ongoing</span>
+              <span><span class="dot" style="background:#C9930F"></span>NPL — construction complete</span>
+              <span><span class="dot" style="background:#2F7D4E"></span>NPL — deleted</span>
+            </div>
+            <div class="legend">
+              <span><span class="diamond" style="background:#14707E"></span>Area of Concern — active</span>
+              <span><span class="diamond" style="background:#2F7D4E"></span>Area of Concern — delisted</span>
+            </div>
+            <div class="legend">
+              <span><span style="display:inline-block;width:16px;height:0;border-top:3px solid #1565D8;vertical-align:middle;margin-right:6px"></span>Major tributaries</span>
+            </div>
+          </div>
+        </div>
+        <div class="map-note">Basemap: Esri World Imagery (satellite) / OpenStreetMap (street), switchable via the layer control bottom-right ·
           Watershed boundary: uploaded <strong>Great Lakes Watershed Boundary</strong> KMZ, simplified for display ·
           Major tributaries: <strong>Great Lakes river network</strong> (<code>great_lakes_river_network.kmz</code>, HUC-2 region 04) ·
           State boundaries: U.S. Census Bureau cartographic boundaries (see footer note on the uploaded state file) ·
@@ -245,18 +269,6 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
         <h3>Select a site</h3>
         <p class="hint">Click any marker on the map — or a row in the register below — to see what was released there,
           which lake basin receives it, and where the cleanup or restoration stands.</p>
-        <div class="legend">
-          <span><span class="dot" style="background:#B7431C"></span>NPL — cleanup ongoing</span>
-          <span><span class="dot" style="background:#C9930F"></span>NPL — construction complete</span>
-          <span><span class="dot" style="background:#2F7D4E"></span>NPL — deleted</span>
-        </div>
-        <div class="legend">
-          <span><span class="diamond" style="background:#14707E"></span>Area of Concern — active</span>
-          <span><span class="diamond" style="background:#2F7D4E"></span>Area of Concern — delisted</span>
-        </div>
-        <div class="legend">
-          <span><span style="display:inline-block;width:18px;height:0;border-top:3px solid #1565D8;vertical-align:middle;margin-right:6px"></span>Major tributaries</span>
-        </div>
       </aside>
     </div>
   </section>
@@ -652,7 +664,7 @@ const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
   attribution:'&copy; OpenStreetMap contributors', maxZoom:19
 });
 satellite.addTo(map);
-L.control.layers({ "Satellite (Esri World Imagery)": satellite, "OpenStreetMap (street)": streets }, null, {position:'topright'}).addTo(map);
+L.control.layers({ "Satellite (Esri World Imagery)": satellite, "OpenStreetMap (street)": streets }, null, {position:'bottomright'}).addTo(map);
 
 const watershedLayer = L.geoJSON(WATERSHED_GEOJSON, {
   style: { color:'#B7431C', weight:2, dashArray:'7 5', fillColor:'#B7431C', fillOpacity:0.05 }
@@ -972,15 +984,9 @@ function watershedCentroid(){
 }
 
 function drawLakeLabel(ctx, x, y, text){
-  ctx.font = 'bold 15px "Segoe UI", sans-serif';
+  ctx.font = '700 12px "Segoe UI", sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = 'rgba(0,0,0,0.75)';
-  ctx.strokeText(text, x, y);
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-  ctx.strokeText(text, x, y);
   ctx.fillStyle = '#FFFFFF';
   ctx.fillText(text, x, y);
   ctx.textAlign = 'left';
@@ -1051,7 +1057,7 @@ function drawLegendBox(ctx, width, height, opts){
   const maxLabelW = Math.max(...items.map(it => ctx.measureText(it.label).width));
   const boxW = Math.min(width - 24, Math.max(280, pad + sz.r * 2 + 18 + maxLabelW + pad));
   const boxH = pad * 2 + items.length * rowH + 20;
-  const x0 = 14;
+  const x0 = width - boxW - 14;
   const y0 = 14;
 
   ctx.save();
@@ -1552,19 +1558,7 @@ $('f-reset').addEventListener('click', ()=>{
   document.querySelectorAll('#lake-chips .chip').forEach(c=>c.setAttribute('aria-pressed','true'));
   $('chip-npl').setAttribute('aria-pressed','true'); $('chip-aoc').setAttribute('aria-pressed','true');
   $('detail').innerHTML = `<h3>Select a site</h3>
-    <p class="hint">Click any marker on the map — or a row in the register below — to see what was released there, which lake basin receives it, and where the cleanup or restoration stands.</p>
-    <div class="legend">
-      <span><span class="dot" style="background:#B7431C"></span>NPL — cleanup ongoing</span>
-      <span><span class="dot" style="background:#C9930F"></span>NPL — construction complete</span>
-      <span><span class="dot" style="background:#2F7D4E"></span>NPL — deleted</span>
-    </div>
-    <div class="legend">
-      <span><span class="diamond" style="background:#14707E"></span>Area of Concern — active</span>
-      <span><span class="diamond" style="background:#2F7D4E"></span>Area of Concern — delisted</span>
-    </div>
-    <div class="legend">
-      <span><span style="display:inline-block;width:18px;height:0;border-top:3px solid #1565D8;vertical-align:middle;margin-right:6px"></span>Major tributaries</span>
-    </div>`;
+    <p class="hint">Click any marker on the map — or a row in the register below — to see what was released there, which lake basin receives it, and where the cleanup or restoration stands.</p>`;
   map.setView([44.3,-84.0], 6);
   render();
 });
