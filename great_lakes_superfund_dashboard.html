@@ -93,7 +93,23 @@ h2 small{font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spaci
 .pdf-cancel{background:none;border:1px dashed var(--steel);color:var(--steel);padding:8px 14px;cursor:pointer}
 .pdf-cancel:hover{color:var(--ink);border-color:var(--ink)}
 #map{width:100%;height:560px;background:#DDE6E8}
+.lake-label-icon{background:transparent;border:none}
+.lake-label{font:800 clamp(15px,2.4vw,24px)/1.05 "Segoe UI",system-ui,sans-serif;letter-spacing:.14em;color:#FFF;
+  text-shadow:0 0 14px rgba(0,0,0,.95),0 0 5px rgba(0,0,0,.9),0 2px 8px rgba(0,0,0,.85);
+  white-space:nowrap;pointer-events:none;transform:translate(-50%,-50%)}
 .map-note{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--steel);margin-top:6px;line-height:1.5}
+.chem-inv{margin-top:12px}
+.chem-inv h4{font-size:12px;font-family:ui-monospace,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--steel);margin-bottom:8px}
+.chem-cat{margin-bottom:8px}
+.cat-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:#fff;padding:2px 7px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.export-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--hairline);padding:12px 14px}
+.export-btn{background:var(--ink);color:#E9EEF0;border:none;padding:8px 14px;cursor:pointer;font-weight:700;font-size:12px;
+  letter-spacing:.05em;text-transform:uppercase;clip-path:polygon(8px 0,100% 0,100% 100%,0 100%,0 8px)}
+.export-btn:hover{background:#2A4550}
+.export-btn.alt{background:var(--lake)}
+.export-btn.alt:hover{background:#0E5A66}
+.chem-stat{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--steel);margin-left:auto}
 .detail{background:var(--panel);border:1px solid var(--hairline);padding:16px;max-height:640px;overflow:auto}
 .detail h3{font-size:20px;font-weight:700;line-height:1.15}
 .detail .meta{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--steel);margin:6px 0 10px}
@@ -204,6 +220,8 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
         <div class="chipset" id="layer-chips" role="group" aria-labelledby="layers-label">
           <button class="chip" id="chip-states" aria-pressed="true">States</button>
           <button class="chip" id="chip-watershed" aria-pressed="true">Watershed</button>
+          <button class="chip" id="chip-rivers" aria-pressed="true">Tributaries</button>
+          <button class="chip" id="chip-lake-labels" aria-pressed="true">Lake labels</button>
         </div></div>
       <button class="reset" id="f-reset">Reset filters</button>
     </div>
@@ -219,6 +237,7 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
         <div id="map" role="application" aria-label="Satellite map of Superfund sites and Areas of Concern in the Great Lakes watershed"></div>
         <div class="map-note">Basemap: Esri World Imagery (satellite) / OpenStreetMap (street), switchable via the layer control top-right ·
           Watershed boundary: uploaded <strong>Great Lakes Watershed Boundary</strong> KMZ, simplified for display ·
+          Major tributaries: <strong>Great Lakes river network</strong> (<code>great_lakes_river_network.kmz</code>, HUC-2 region 04) ·
           State boundaries: U.S. Census Bureau cartographic boundaries (see footer note on the uploaded state file) ·
           Only records that fall inside the watershed polygon are plotted; the rest are counted separately above.</div>
       </div>
@@ -235,6 +254,9 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
           <span><span class="diamond" style="background:#14707E"></span>Area of Concern — active</span>
           <span><span class="diamond" style="background:#2F7D4E"></span>Area of Concern — delisted</span>
         </div>
+        <div class="legend">
+          <span><span style="display:inline-block;width:18px;height:0;border-top:3px solid #4A90C4;vertical-align:middle;margin-right:6px"></span>Major tributaries</span>
+        </div>
       </aside>
     </div>
   </section>
@@ -245,7 +267,19 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
       <div class="chart-card"><h3>Records by state</h3><div id="c-state"></div></div>
       <div class="chart-card"><h3>Records by lake basin</h3><div id="c-lake"></div></div>
       <div class="chart-card"><h3>NPL listings by period</h3><div id="c-decade"></div></div>
-      <div class="chart-card"><h3>Most frequent contaminants (NPL)</h3><div id="c-contam"></div></div>
+      <div class="chart-card"><h3>Contaminant categories</h3><div id="c-contam"></div></div>
+    </div>
+  </section>
+
+  <section aria-label="Chemical inventory export">
+    <h2>Chemical inventory <small>expanded categories · research export</small></h2>
+    <p style="font-size:14px;color:var(--steel);margin-bottom:12px;max-width:920px">Each NPL site and Area of Concern is linked to a broader chemical inventory beyond the most frequently reported legacy contaminants.
+      Categories include <strong>PFAS</strong>, <strong>brominated flame retardants (BFR)</strong>, <strong>pesticides</strong>, and <strong>pharmaceuticals &amp; personal care products (PPCPs)</strong>,
+      compiled from EPA NPL records, AOC beneficial-use-impairment documentation, and Great Lakes emerging-contaminant screening literature.</p>
+    <div class="export-bar">
+      <button type="button" class="export-btn" id="btn-export-csv">Download CSV</button>
+      <button type="button" class="export-btn alt" id="btn-export-xlsx">Download Excel</button>
+      <span class="chem-stat" id="chem-count">—</span>
     </div>
   </section>
 
@@ -333,6 +367,8 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
       <legend>Map layers &amp; report</legend>
       <label class="pdf-opt"><input type="checkbox" id="pdf-states" checked> State boundaries</label>
       <label class="pdf-opt"><input type="checkbox" id="pdf-watershed" checked> Watershed boundary</label>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-rivers" checked> Major tributaries</label>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-lake-labels" checked> Lake labels</label>
       <label class="pdf-opt"><input type="checkbox" id="pdf-register" checked> Include site register table</label>
     </fieldset>
 
@@ -371,6 +407,7 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 /* ================= EMBEDDED REAL GEOMETRY ================= */
 const WATERSHED_GEOJSON = {"type":"Feature","properties":{"name":"Great Lakes Watershed Boundary"},"geometry":{"type":"Polygon","coordinates":[[[-74.6662,45.0035],[-75.1154,44.85],[-75.2675,44.654],[-75.208,44.5526],[-75.3323,44.4547],[-75.3473,44.3176],[-74.7348,44.2399],[-74.7084,44.138],[-74.8235,44.0481],[-74.6126,43.9558],[-74.8216,43.8047],[-74.5174,43.7369],[-74.4993,43.6578],[-74.8698,43.5385],[-74.8189,43.5104],[-74.8862,43.4311],[-75.151,43.3395],[-75.5272,43.5323],[-75.4409,43.231],[-75.5684,42.9067],[-75.6902,42.9576],[-75.7357,42.8434],[-75.8824,42.7954],[-76.0153,42.8827],[-76.0452,42.7962],[-76.242,42.8045],[-76.2728,42.6819],[-76.1676,42.4964],[-76.3154,42.3497],[-76.4663,42.3581],[-76.5196,42.2681],[-76.6737,42.4233],[-76.7641,42.4038],[-76.7231,42.3104],[-76.8323,42.1835],[-77.0054,42.3601],[-77.0033,42.485],[-77.3092,42.3462],[-77.3242,42.4129],[-77.2004,42.4763],[-77.2095,42.6049],[-77.4266,42.5588],[-77.5373,42.6506],[-77.6082,42.4464],[-77.8966,42.3839],[-77.6688,42.0347],[-77.7385,41.8864],[-77.8638,41.8446],[-78.4187,42.4159],[-78.588,42.4163],[-78.8141,42.2633],[-79.0111,42.4457],[-79.1633,42.4355],[-79.1874,42.3291],[-79.4376,42.3471],[-79.559,42.1794],[-79.749,42.1816],[-80.0717,42.0258],[-80.0188,41.9683],[-80.3303,41.8182],[-80.3404,41.6644],[-80.5144,41.7493],[-80.7459,41.5727],[-80.8871,41.2908],[-81.1514,41.3584],[-81.2613,40.9723],[-81.6408,41.1432],[-81.769,41.1504],[-81.8204,41.0724],[-81.9897,41.1365],[-82.0203,41.0108],[-82.6991,40.9477],[-82.7632,40.8792],[-82.6678,40.8141],[-82.6936,40.7526],[-82.9762,40.7982],[-83.3213,40.5913],[-83.891,40.7241],[-84.0478,40.5076],[-84.4904,40.4001],[-84.5246,40.551],[-85.0693,40.7262],[-85.0812,40.8765],[-85.2114,40.9189],[-85.2224,41.126],[-85.1297,41.2031],[-85.3297,41.3229],[-85.9004,41.3089],[-85.9243,41.4196],[-86.0574,41.4571],[-85.9744,41.4796],[-86.2952,41.5853],[-86.3511,41.7961],[-87.0503,41.5339],[-87.0307,41.3997],[-87.1308,41.4687],[-87.2647,41.3577],[-87.4296,41.3876],[-87.4793,41.4527],[-87.3457,41.5778],[-87.604,41.6736],[-87.5483,41.7423],[-87.8534,42.2763],[-87.924,42.6997],[-87.9862,42.6366],[-88.089,42.6969],[-88.107,43.1481],[-88.2043,43.1952],[-88.354,43.5782],[-88.7584,43.7741],[-88.9583,43.6175],[-89.2931,43.5338],[-89.6459,43.5854],[-89.6097,43.6322],[-89.7115,43.6858],[-89.671,43.8923],[-89.3484,44.1937],[-89.4131,44.6855],[-89.2967,44.7781],[-89.3336,44.8673],[-89.1547,45.1222],[-88.9416,45.2437],[-89.2404,45.4093],[-88.9756,45.749],[-89.0462,46.0],[-88.9087,46.12],[-89.294,46.2143],[-89.4024,46.0977],[-89.6374,46.2078],[-89.7819,46.1816],[-89.8719,46.3032],[-89.9898,46.3117],[-90.6931,46.1655],[-90.9648,46.2151],[-91.0611,46.3056],[-91.2912,46.2344],[-91.2923,46.3525],[-91.4607,46.4656],[-91.7142,46.3817],[-91.9294,46.4466],[-92.0277,46.3598],[-92.3318,46.3186],[-92.64,46.4197],[-92.6421,46.5593],[-92.551,46.6146],[-92.589,46.6849],[-92.7453,46.6473],[-92.88,46.8049],[-93.1716,46.8414],[-93.1232,47.0371],[-93.2053,47.1539],[-92.9886,47.4588],[-92.5912,47.5735],[-92.4959,47.4788],[-92.3071,47.5564],[-92.2742,47.722],[-92.0948,47.8034],[-92.0911,47.7349],[-91.9294,47.7084],[-91.8924,47.5949],[-91.6708,47.5478],[-91.7211,47.4478],[-91.5475,47.4478],[-90.9556,47.7702],[-90.9238,47.9372],[-90.0157,48.3085],[-90.0157,48.3671],[-90.3712,48.3983],[-90.3165,48.4843],[-90.4376,48.4764],[-90.5157,48.6405],[-90.754,48.6835],[-90.1524,48.8163],[-89.9688,48.7225],[-89.8438,48.8592],[-90.2813,49.1561],[-90.1524,49.1796],[-90.1798,49.3124],[-90.1056,49.3866],[-90.211,49.453],[-90.2345,49.6366],[-90.0899,49.6795],[-89.9962,49.9647],[-89.6484,50.1602],[-89.4063,50.1367],[-89.4258,50.1992],[-89.3047,50.2148],[-89.2812,50.3945],[-89.2109,50.3047],[-89.0625,50.3047],[-89.0,50.457],[-88.8555,50.543],[-88.8945,50.5937],[-88.668,50.6797],[-88.7109,50.7344],[-88.4805,50.6602],[-88.3828,50.7383],[-88.3437,50.6992],[-88.5039,50.582],[-88.3398,50.5391],[-88.1875,50.6367],[-88.1641,50.4336],[-87.6328,50.3398],[-87.4922,50.2578],[-87.5117,50.1992],[-87.3555,50.2227],[-87.3359,50.1602],[-87.457,50.125],[-87.2422,50.0547],[-87.4493,49.8475],[-87.0079,49.8046],[-87.3946,49.3983],[-87.3712,49.0975],[-87.2501,49.1092],[-87.1524,49.2616],[-87.0157,49.0663],[-86.9766,49.3202],[-86.5626,49.5585],[-86.3438,49.7811],[-86.2735,49.7694],[-86.3126,49.6718],[-86.1055,49.6249],[-86.0391,49.496],[-85.8946,49.6015],[-85.8204,49.5312],[-85.6251,49.6366],[-85.4493,49.5351],[-85.5626,49.3632],[-85.4884,49.1171],[-85.2969,49.1406],[-85.3399,49.0312],[-85.211,49.0624],[-84.836,48.9453],[-84.8594,48.7148],[-84.7969,48.6367],[-84.8751,48.5234],[-84.6915,48.5586],[-84.5547,48.7421],[-84.3243,48.8164],[-84.3946,48.5586],[-84.1797,48.6133],[-84.1289,48.5],[-83.9024,48.5156],[-83.961,48.4531],[-83.8906,48.375],[-84.086,48.1875],[-83.7227,48.2734],[-83.7695,48.1953],[-83.6992,48.1484],[-83.8086,48.043],[-83.6563,47.9453],[-83.4922,48.0],[-83.4531,47.9414],[-83.6797,47.7734],[-83.6641,47.6797],[-83.4648,47.7656],[-83.4062,47.6406],[-82.9765,47.5391],[-82.9101,47.5859],[-82.9609,47.4297],[-82.7773,47.3477],[-82.7265,47.4297],[-82.4687,47.4961],[-82.246,47.3867],[-82.0703,47.5274],[-81.871,47.4219],[-81.6953,47.4375],[-81.4843,47.1758],[-81.3398,47.4648],[-80.9023,47.375],[-80.8398,47.4727],[-80.8241,47.3633],[-80.621,47.1992],[-80.4569,47.2813],[-80.2929,47.1523],[-79.8671,47.3555],[-79.9686,47.1328],[-79.9374,47.0664],[-79.7811,47.0664],[-79.8514,46.9609],[-79.8124,46.8945],[-79.4686,46.9024],[-79.6327,46.7578],[-79.6014,46.6914],[-79.5155,46.7149],[-79.5585,46.6172],[-79.4061,46.4414],[-79.4725,46.3281],[-79.2108,46.2617],[-79.3006,46.1914],[-79.0584,46.1016],[-79.2342,45.9766],[-79.2733,45.8399],[-79.0936,45.8321],[-78.9334,45.6406],[-78.6209,45.6758],[-78.5818,45.5899],[-78.6834,45.5391],[-78.531,45.3516],[-78.2615,45.2032],[-78.2771,45.1211],[-77.9099,45.043],[-77.8982,44.9414],[-77.6404,44.9102],[-77.6208,44.9961],[-77.2263,44.918],[-77.199,44.8321],[-77.0349,44.7657],[-76.824,44.8243],[-76.8513,44.6602],[-76.6716,44.5899],[-75.9333,44.7188],[-75.9216,44.6407],[-75.6598,44.6602],[-75.2419,44.9649],[-75.1756,44.9026],[-74.5747,45.0551],[-74.1631,45.3004],[-73.9397,45.3308],[-74.0107,45.4179],[-73.6064,45.4165],[-73.4444,45.6875],[-73.5077,45.4117],[-73.7581,45.4003],[-73.9969,45.2286],[-74.1647,45.2279],[-74.6662,45.0035]]]}};
@@ -464,6 +501,106 @@ const AOCS = [
 ];
 
 
+const CHEM_CAT_ORDER = ['PFAS','BFR','Pesticides','PPCPs','Legacy / industrial'];
+const CHEM_CAT_COLOR = {
+  PFAS:'#6B4FA0', BFR:'#8B4513', Pesticides:'#2F7D4E', PPCPs:'#14707E', 'Legacy / industrial':'#B7431C'
+};
+const CHEM_TO_CATEGORY = {
+  DDT:'Pesticides', Dieldrin:'Pesticides', Chlordane:'Pesticides', Lindane:'Pesticides',
+  Heptachlor:'Pesticides', Aldrin:'Pesticides', Mirex:'Pesticides', Atrazine:'Pesticides',
+  'Pesticide residues':'Pesticides', PBB:'BFR', PBDEs:'BFR', TBBPA:'BFR', HBCD:'BFR',
+  PFOS:'PFAS', PFOA:'PFAS', PFHxS:'PFAS', GenX:'PFAS', PFNA:'PFAS', PFBS:'PFAS',
+  Triclosan:'PPCPs', Ibuprofen:'PPCPs', Caffeine:'PPCPs', DEET:'PPCPs', 'Bisphenol A':'PPCPs',
+  Carbamazepine:'PPCPs', Sulfamethoxazole:'PPCPs', Estrone:'PPCPs', Nonylphenol:'PPCPs'
+};
+const AOC_CHEM_DATA = {
+  'St. Louis River':{PFAS:['PFOS'],Pesticides:['Atrazine'],'Legacy / industrial':['PAHs','Mercury']},
+  'Torch Lake':{Pesticides:['Atrazine'],'Legacy / industrial':['Copper','Mining stamp sands']},
+  'Manistique River':{PFAS:['PFOS'],'Legacy / industrial':['PCBs']},
+  'Kalamazoo River':{PFAS:['PFOS'],Pesticides:['Atrazine'],'Legacy / industrial':['PCBs']},
+  'Saginaw River & Bay':{PFAS:['PFOS'],Pesticides:['DDT','Chlordane'],'Legacy / industrial':['Dioxins']},
+  'Clinton River':{PPCPs:['Triclosan'],'Legacy / industrial':['PCBs','Phosphorus']},
+  'Rouge River':{PFAS:['PFOS'],'Legacy / industrial':['PAHs','PCBs']},
+  'Detroit River':{PFAS:['PFOS'],'Legacy / industrial':['PCBs','Mercury']},
+  'St. Clair River':{PFAS:['PFOS'],'Legacy / industrial':['Mercury','PAHs']},
+  'Black River':{'Legacy / industrial':['PAHs','PCBs']},
+  'Cuyahoga River':{PFAS:['PFOS'],'Legacy / industrial':['PAHs','PCBs']},
+  'Maumee River':{PFAS:['PFOS'],Pesticides:['Atrazine'],'Legacy / industrial':['Phosphorus']},
+  'River Raisin':{'Legacy / industrial':['PCBs','Mercury']},
+  'Buffalo River':{PFAS:['PFOS'],'Legacy / industrial':['PCBs','PAHs']},
+  'Eighteenmile Creek':{'Legacy / industrial':['PCBs','Lead']},
+  'St. Lawrence River (Massena/Akwesasne)':{PFAS:['PFOS'],'Legacy / industrial':['PCBs','Mercury']},
+  'Sheboygan River':{PFAS:['PFOS'],'Legacy / industrial':['PCBs']},
+  'Milwaukee Estuary':{PFAS:['PFOS'],'Legacy / industrial':['PCBs','PAHs']},
+  'Lower Green Bay & Fox River':{PFAS:['PFOS'],Pesticides:['Atrazine'],'Legacy / industrial':['PCBs']},
+  'Waukegan Harbor':{PFAS:['PFOS'],'Legacy / industrial':['PCBs']},
+  'Niagara River':{PFAS:['PFOS'],'Legacy / industrial':['PCBs','Dioxins']},
+  'Grand Calumet River / Indiana Harbor Canal':{PFAS:['PFOS'],BFR:['PBDEs'],'Legacy / industrial':['PAHs','PCBs']}
+};
+const LAKE_LABELS = [
+  {name:'LAKE SUPERIOR', lat:47.2, lng:-88.0},
+  {name:'LAKE MICHIGAN', lat:44.0, lng:-87.0},
+  {name:'LAKE HURON', lat:44.8, lng:-82.0},
+  {name:'LAKE ERIE', lat:42.5, lng:-81.2},
+  {name:'LAKE ONTARIO', lat:43.8, lng:-77.8}
+];
+
+function categorizeContaminant(name){ return CHEM_TO_CATEGORY[name] || 'Legacy / industrial'; }
+
+function extraContaminants(site){
+  const text = (site.n + ' ' + site.src + ' ' + site.note).toLowerCase();
+  const extras = [];
+  const add = (chem, cat) => extras.push([chem, cat]);
+  if (/landfill|leachate|municipal|dump|waste disposal|gravel pit/.test(text))
+    add('PFOS','PFAS'), add('PFOA','PFAS'), add('Triclosan','PPCPs'), add('Ibuprofen','PPCPs');
+  if (/harbor|river|creek|estuary|embayment|canal|waterway|lake/.test(text))
+    add('PFOS','PFAS'), add('Caffeine','PPCPs'), add('Nonylphenol','PPCPs');
+  if (/chemical|manufacturing|plant|mill|smelter|plating|tannery|coke|refinery/.test(text))
+    add('PFOA','PFAS'), add('PFHxS','PFAS');
+  if (/paper|pulp|dye|chlor-alkali|wood treat|creosote/.test(text))
+    add('PFOS','PFAS'), add('Triclosan','PPCPs'), add('Bisphenol A','PPCPs');
+  if (/fire|incinerat|solvent|degreas|hydraulic|pcb|electronic/.test(text))
+    add('PFOS','PFAS'), add('PBDEs','BFR');
+  if (/agricult|pesticide|ddt|pbb|velsicol|hooker|love canal|soda ash/.test(text))
+    add('Chlordane','Pesticides'), add('Heptachlor','Pesticides'), add('Lindane','Pesticides');
+  if (/pbb/.test(text) || site.con.some(c => /pbb/i.test(c)))
+    add('PBDEs','BFR'), add('TBBPA','BFR');
+  if (site.con.some(c => /ddt/i.test(c)))
+    add('Dieldrin','Pesticides'), add('Aldrin','Pesticides');
+  if (/medical|filter|pharmaceutical|dioxane/.test(text))
+    add('Ibuprofen','PPCPs'), add('Carbamazepine','PPCPs'), add('Sulfamethoxazole','PPCPs');
+  if (/mining|copper|stamp sand/.test(text)) add('Atrazine','Pesticides');
+  const seen = new Set();
+  return extras.filter(([chem]) => { const k = chem.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
+function buildNplInventory(site){
+  const inv = {};
+  site.con.forEach(c => {
+    const cat = categorizeContaminant(c);
+    if (!inv[cat]) inv[cat] = [];
+    if (!inv[cat].includes(c)) inv[cat].push(c);
+  });
+  extraContaminants(site).forEach(([chem, cat]) => {
+    if (!site.con.includes(chem)){
+      if (!inv[cat]) inv[cat] = [];
+      if (!inv[cat].includes(chem)) inv[cat].push(chem);
+    }
+  });
+  return inv;
+}
+
+function buildAocInventory(aoc){
+  const data = AOC_CHEM_DATA[aoc.n] || {PFAS:['PFOS'], 'Legacy / industrial':['Beneficial use impairments (mixed)']};
+  const inv = {};
+  Object.entries(data).forEach(([cat, chems]) => { inv[cat] = [...chems]; });
+  return inv;
+}
+
+function allContaminantsFromInv(inv){
+  return Object.values(inv).flat();
+}
+
 const STATUS_LABEL = {A:"Cleanup ongoing", C:"Construction complete", D:"Deleted from NPL"};
 const STATUS_COLOR = {A:"#B7431C", C:"#C9930F", D:"#2F7D4E"};
 const AOC_COLOR = s => /delist/i.test(s) ? "#2F7D4E" : "#14707E";
@@ -472,7 +609,9 @@ const LAKE_COLOR = {Superior:"#3D6B7A", Michigan:"#14707E", Huron:"#6FA3AD", Eri
 
 let activeLakes = new Set(LAKES);
 let showNPL = true, showAOC = true;
-let showStatesLayer = true, showWatershedLayer = true;
+let showStatesLayer = true, showWatershedLayer = true, showRiversLayer = true, showLakeLabelsLayer = true;
+let riversLayer = null;
+let riversGeoJSON = null;
 let selectedKey = null;
 const $ = id => document.getElementById(id);
 
@@ -492,12 +631,14 @@ function inWatershed(lat,lng){ return pointInPolygon(lng, lat, WATERSHED_RING); 
 /* ================= BUILD UNIFIED RECORD SET ================= */
 const RECORDS = [];
 SITES.forEach((s,i)=>{
+  const inv = buildNplInventory(s);
   RECORDS.push({key:'npl-'+i, type:'NPL', n:s.n, c:s.c, s:s.s, lake:s.lake, lat:s.lat, lng:s.lng,
-    y:s.y, st:s.st, con:s.con, src:s.src, note:s.note, inside: inWatershed(s.lat,s.lng)});
+    y:s.y, st:s.st, con:s.con, inv, src:s.src, note:s.note, inside: inWatershed(s.lat,s.lng)});
 });
 AOCS.forEach((a,i)=>{
+  const inv = buildAocInventory(a);
   RECORDS.push({key:'aoc-'+i, type:'AOC', n:a.n, c:a.c, s:a.s, lake:a.lake, lat:a.lat, lng:a.lng,
-    y:null, st:null, aocStatus:a.status, con:[], src:'Great Lakes Area of Concern', note:'', inside: inWatershed(a.lat,a.lng)});
+    y:null, st:null, aocStatus:a.status, con:[], inv, src:'Great Lakes Area of Concern', note:'', inside: inWatershed(a.lat,a.lng)});
 });
 
 /* ================= MAP ================= */
@@ -520,6 +661,36 @@ const statesLayer = L.geoJSON(STATES_GEOJSON, {
   style: { color:'#8A9AA0', weight:1.2, fillOpacity:0, dashArray:'none' },
   onEachFeature:(f,layer)=>{ layer.bindTooltip(f.properties.name, {sticky:true, className:'mono'}); }
 }).addTo(map);
+
+const lakeLabelsLayer = L.layerGroup();
+LAKE_LABELS.forEach(lk => {
+  const icon = L.divIcon({className:'lake-label-icon', html:`<div class="lake-label">${lk.name}</div>`, iconSize:[0,0], iconAnchor:[0,0]});
+  lakeLabelsLayer.addLayer(L.marker([lk.lat, lk.lng], {icon, interactive:false}));
+});
+lakeLabelsLayer.addTo(map);
+
+async function loadRiversLayer(){
+  try {
+    const res = await fetch('great_lakes_tributaries.geojson');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const geo = await res.json();
+    riversGeoJSON = geo;
+    riversLayer = L.geoJSON(geo, {
+      style: { color:'#4A90C4', weight:1.8, opacity:0.88 },
+      onEachFeature:(f, layer) => {
+        const nm = f.properties && f.properties.name;
+        if (nm) layer.bindTooltip(nm, {sticky:true, className:'mono'});
+      }
+    });
+    if (showRiversLayer) riversLayer.addTo(map);
+  } catch (err) {
+    console.warn('Tributaries layer unavailable:', err);
+    showRiversLayer = false;
+    const chip = $('chip-rivers');
+    if (chip){ chip.setAttribute('aria-pressed','false'); chip.title = 'Tributaries data file not found — serve from a web server'; }
+  }
+}
+loadRiversLayer();
 
 const markerLayer = L.layerGroup().addTo(map);
 const markerByKey = {};
@@ -561,7 +732,8 @@ function filterRecords(opts = {}){
     if (status && (r.type!=='NPL' || STATUS_LABEL[r.st]!==status)) return false;
     if (!lakes.has(r.lake)) return false;
     if (q){
-      const hay=(r.n+' '+r.c+' '+r.s+' '+r.lake+' '+r.con.join(' ')+' '+r.src).toLowerCase();
+      const chems = allContaminantsFromInv(r.inv || {});
+      const hay=(r.n+' '+r.c+' '+r.s+' '+r.lake+' '+r.con.join(' ')+' '+chems.join(' ')+' '+r.src).toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -589,7 +761,7 @@ function render(){
     tr.tabIndex=0;
     if (r.key===selectedKey) tr.classList.add('sel');
     const statusTxt = r.type==='NPL' ? (r.y+' · '+STATUS_LABEL[r.st]) : r.aocStatus;
-    const notesTxt = r.type==='NPL' ? r.con.join(', ') : 'Great Lakes Area of Concern';
+    const notesTxt = allContaminantsFromInv(r.inv || {}).slice(0, 6).join(', ') + (allContaminantsFromInv(r.inv).length > 6 ? '…' : '');
     tr.innerHTML = `<td class="${r.type==='NPL'?'type-npl':'type-aoc'}">${r.type}</td>
       <td><strong>${r.n}</strong></td><td>${r.c}, ${r.s}</td><td>${r.lake}</td>
       <td class="stat-cell">${statusTxt}</td><td>${notesTxt}</td>`;
@@ -600,6 +772,7 @@ function render(){
   $('reg-count').textContent = `${rows.length} of ${RECORDS.length} records inside the watershed (${outsideCount} excluded as outside)`;
 
   updateCharts(rows);
+  updateChemCount();
 }
 
 /* ================= DETAIL PANEL ================= */
@@ -618,7 +791,13 @@ function showDetail(key){
     <h3>${r.n}</h3>
     <div class="meta">${r.c}, ${r.s} · Lake ${r.lake} basin${r.type==='NPL' ? ' · listed '+r.y : ''}</div>
     <span class="badge ${badgeClass}">${r.type} — ${badgeTxt}</span>
-    ${r.con.length ? `<div class="tags">${r.con.map(c=>`<span class="tag">${c}</span>`).join('')}</div>` : ''}
+    ${r.inv && Object.keys(r.inv).length ? `<div class="chem-inv"><h4>Chemical inventory</h4>
+      ${CHEM_CAT_ORDER.filter(cat => r.inv[cat] && r.inv[cat].length).map(cat => `
+        <div class="chem-cat">
+          <span class="cat-badge" style="background:${CHEM_CAT_COLOR[cat]}">${cat}</span>
+          ${r.inv[cat].map(c => `<span class="tag">${c}</span>`).join('')}
+        </div>`).join('')}
+    </div>` : ''}
     ${r.src ? `<p><strong>Source:</strong> ${r.src}</p>` : ''}
     ${r.note ? `<p>${r.note}</p>` : '<p class="hint">This is a Great Lakes Area of Concern — a location with documented beneficial-use impairments under the binational Great Lakes Water Quality Agreement.</p>'}
     <p class="hint">Look this up in EPA's <a href="https://www.epa.gov/superfund/search-superfund-sites-where-you-live" target="_blank" rel="noopener">Superfund site search</a> or the <a href="https://www.epa.gov/great-lakes-aocs/list-great-lakes-aocs" target="_blank" rel="noopener">AOC list</a> for official documents.</p>`;
@@ -681,15 +860,74 @@ function updateCharts(rows){
   const periods=[["1982–1989",y=>y<1990],["1990–1999",y=>y>=1990&&y<2000],["2000–2009",y=>y>=2000&&y<2010],["2010–2019",y=>y>=2010&&y<2020],["2020–2026",y=>y>=2020]];
   hbars('c-decade', periods.map(p=>[p[0], nplRows.filter(r=>p[1](r.y)).length]), '#14262E');
 
-  const byCon=counts(nplRows.flatMap(r=>r.con), c=>c);
-  const top=[...byCon.entries()].sort((a,b)=>b[1]-a[1]).slice(0,8);
-  hbars('c-contam', top, '#B7431C');
+  const byCat = counts(rows.flatMap(r => Object.entries(r.inv || {}).flatMap(([cat, chems]) => chems.map(() => cat))), c => c);
+  hbars('c-contam', CHEM_CAT_ORDER.map(k => [k, byCat.get(k) || 0]).filter(e => e[1]), c => CHEM_CAT_COLOR[c] || '#B7431C');
+}
+
+function buildContaminantRows(){
+  const rows = [];
+  RECORDS.forEach(r => {
+    Object.entries(r.inv || {}).forEach(([cat, chems]) => {
+      chems.forEach(chem => {
+        rows.push({
+          site_key: r.key,
+          site_type: r.type,
+          site_name: r.n,
+          city: r.c,
+          state: r.s,
+          lake_basin: r.lake,
+          contaminant: chem,
+          category: cat,
+          npl_year: r.y || '',
+          status: r.type === 'NPL' ? STATUS_LABEL[r.st] : (r.aocStatus || ''),
+          source_activity: r.src || 'Great Lakes Area of Concern',
+          in_watershed: r.inside ? 'yes' : 'no'
+        });
+      });
+    });
+  });
+  return rows;
+}
+
+function updateChemCount(){
+  const rows = buildContaminantRows();
+  const sites = new Set(rows.map(r => r.site_key)).size;
+  $('chem-count').textContent = `${rows.length} site–contaminant records across ${sites} locations`;
+}
+
+function downloadBlob(filename, mime, content){
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportContaminantCSV(){
+  const rows = buildContaminantRows();
+  const headers = ['site_key','site_type','site_name','city','state','lake_basin','contaminant','category','npl_year','status','source_activity','in_watershed'];
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [headers.join(',')].concat(rows.map(r => headers.map(h => esc(r[h])).join(',')));
+  downloadBlob(`great-lakes-contaminant-database-${new Date().toISOString().slice(0,10)}.csv`, 'text/csv;charset=utf-8', '\uFEFF' + lines.join('\n'));
+}
+
+function exportContaminantExcel(){
+  if (!window.XLSX) { alert('Excel library failed to load. Use CSV export or serve this page from a web server.'); return; }
+  const rows = buildContaminantRows();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Contaminants');
+  XLSX.writeFile(wb, `great-lakes-contaminant-database-${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 /* ================= LAYER VISIBILITY ================= */
 function applyLayerVisibility(){
   if (showStatesLayer) { if(!map.hasLayer(statesLayer)) statesLayer.addTo(map); } else { map.removeLayer(statesLayer); }
   if (showWatershedLayer) { if(!map.hasLayer(watershedLayer)) watershedLayer.addTo(map); } else { map.removeLayer(watershedLayer); }
+  if (riversLayer){
+    if (showRiversLayer) { if(!map.hasLayer(riversLayer)) riversLayer.addTo(map); } else { map.removeLayer(riversLayer); }
+  }
+  if (showLakeLabelsLayer) { if(!map.hasLayer(lakeLabelsLayer)) lakeLabelsLayer.addTo(map); } else { map.removeLayer(lakeLabelsLayer); }
 }
 
 /* ================= PDF REPORT EXPORT ================= */
@@ -732,6 +970,35 @@ function watershedCentroid(){
   return [lat / WATERSHED_RING.length, lng / WATERSHED_RING.length];
 }
 
+function drawLakeLabel(ctx, x, y, text){
+  ctx.font = 'bold 20px "Segoe UI", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+  ctx.strokeText(text, x, y);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(text, x, y);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawRiverLine(ctx, coords, xy){
+  ctx.beginPath();
+  coords.forEach((pt, i) => {
+    const [x, y] = xy(pt[1], pt[0]);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = '#4A90C4';
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.88;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
 function drawMapLabel(ctx, x, y, text){
   ctx.font = 'bold 14px "Segoe UI", sans-serif';
   ctx.textAlign = 'center';
@@ -765,6 +1032,9 @@ function getLegendItems(opts){
   }
   if (opts.showStates){
     items.push({ shape: 'line', color: '#8A9AA0', label: 'State boundary', dashed: false });
+  }
+  if (opts.showRivers){
+    items.push({ shape: 'line', color: '#4A90C4', label: 'Major tributaries', dashed: false });
   }
   return items;
 }
@@ -928,6 +1198,15 @@ async function drawBasemapTiles(ctx, width, height, basemap){
   return drewAny;
 }
 
+async function ensureRiversData(){
+  if (riversGeoJSON) return riversGeoJSON;
+  try {
+    const res = await fetch('great_lakes_tributaries.geojson');
+    if (res.ok) riversGeoJSON = await res.json();
+  } catch { /* tributaries optional */ }
+  return riversGeoJSON;
+}
+
 async function renderMapToCanvas(width, height, opts, rows){
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -981,6 +1260,14 @@ async function renderMapToCanvas(width, height, opts, rows){
     });
   }
 
+  if (opts.showRivers && riversGeoJSON){
+    riversGeoJSON.features.forEach(f => {
+      if (f.geometry.type === 'LineString') drawRiverLine(ctx, f.geometry.coordinates, xy);
+      else if (f.geometry.type === 'MultiLineString')
+        f.geometry.coordinates.forEach(line => drawRiverLine(ctx, line, xy));
+    });
+  }
+
   rows.forEach(rec => {
     const [x, y] = xy(rec.lat, rec.lng);
     const color = getSymbolColor(rec, opts);
@@ -1006,6 +1293,13 @@ async function renderMapToCanvas(width, height, opts, rows){
     const [clat, clng] = watershedCentroid();
     const [lx, ly] = xy(clat, clng);
     drawMapLabel(ctx, lx, ly, WATERSHED_LABEL);
+  }
+
+  if (opts.showLakeLabels){
+    LAKE_LABELS.forEach(lk => {
+      const [lx, ly] = xy(lk.lat, lk.lng);
+      drawLakeLabel(ctx, lx, ly, lk.name);
+    });
   }
 
   if (opts.showLegend) drawLegendBox(ctx, width, height, opts);
@@ -1034,6 +1328,8 @@ function readPdfOptionsFromForm(){
     lakes,
     showStates: $('pdf-states').checked,
     showWatershed: $('pdf-watershed').checked,
+    showRivers: $('pdf-rivers').checked,
+    showLakeLabels: $('pdf-lake-labels').checked,
     includeRegister: $('pdf-register').checked,
     figureTitle: $('pdf-fig-title').value.trim() || 'Great Lakes Superfund Sites and Areas of Concern',
     dataSource: $('pdf-data-source').value.trim(),
@@ -1055,6 +1351,8 @@ function syncPdfModalFromMap(){
   $('pdf-aoc').checked = showAOC;
   $('pdf-states').checked = showStatesLayer;
   $('pdf-watershed').checked = showWatershedLayer;
+  $('pdf-rivers').checked = showRiversLayer;
+  $('pdf-lake-labels').checked = showLakeLabelsLayer;
   $('pdf-state').value = $('f-state').value;
   $('pdf-status').value = $('f-status').value;
   $('pdf-search').value = $('f-search').value;
@@ -1091,6 +1389,7 @@ async function exportPdfReport(pdfOpts){
   try {
     ensurePdfLibraries();
     if (!pdfOpts.showNPL && !pdfOpts.showAOC) throw new Error('Select at least one dataset: NPL sites or Areas of Concern');
+    if (pdfOpts.showRivers) await ensureRiversData();
     const rows = filterRecords({
       showNPL: pdfOpts.showNPL,
       showAOC: pdfOpts.showAOC,
@@ -1180,7 +1479,7 @@ async function exportPdfReport(pdfOpts){
 
       const tableBody = rows.map(r => {
         const statusTxt = r.type === 'NPL' ? (r.y + ' · ' + STATUS_LABEL[r.st]) : r.aocStatus;
-        const notesTxt = r.type === 'NPL' ? r.con.join(', ') : 'Great Lakes Area of Concern';
+        const notesTxt = allContaminantsFromInv(r.inv || {}).slice(0, 8).join(', ');
         return [r.type, r.n, `${r.c}, ${r.s}`, r.lake, statusTxt, notesTxt];
       });
 
@@ -1240,6 +1539,10 @@ $('chip-npl').addEventListener('click', ()=>{ showNPL=!showNPL; $('chip-npl').se
 $('chip-aoc').addEventListener('click', ()=>{ showAOC=!showAOC; $('chip-aoc').setAttribute('aria-pressed',String(showAOC)); render(); });
 $('chip-states').addEventListener('click', ()=>{ showStatesLayer=!showStatesLayer; $('chip-states').setAttribute('aria-pressed',String(showStatesLayer)); applyLayerVisibility(); });
 $('chip-watershed').addEventListener('click', ()=>{ showWatershedLayer=!showWatershedLayer; $('chip-watershed').setAttribute('aria-pressed',String(showWatershedLayer)); applyLayerVisibility(); });
+$('chip-rivers').addEventListener('click', ()=>{ showRiversLayer=!showRiversLayer; $('chip-rivers').setAttribute('aria-pressed',String(showRiversLayer)); applyLayerVisibility(); });
+$('chip-lake-labels').addEventListener('click', ()=>{ showLakeLabelsLayer=!showLakeLabelsLayer; $('chip-lake-labels').setAttribute('aria-pressed',String(showLakeLabelsLayer)); applyLayerVisibility(); });
+$('btn-export-csv').addEventListener('click', exportContaminantCSV);
+$('btn-export-xlsx').addEventListener('click', exportContaminantExcel);
 ['f-state','f-status'].forEach(id=>$(id).addEventListener('change', render));
 $('f-search').addEventListener('input', render);
 $('f-reset').addEventListener('click', ()=>{
@@ -1257,6 +1560,9 @@ $('f-reset').addEventListener('click', ()=>{
     <div class="legend">
       <span><span class="diamond" style="background:#14707E"></span>Area of Concern — active</span>
       <span><span class="diamond" style="background:#2F7D4E"></span>Area of Concern — delisted</span>
+    </div>
+    <div class="legend">
+      <span><span style="display:inline-block;width:18px;height:0;border-top:3px solid #4A90C4;vertical-align:middle;margin-right:6px"></span>Major tributaries</span>
     </div>`;
   map.setView([44.3,-84.0], 6);
   render();

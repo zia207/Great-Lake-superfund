@@ -38,7 +38,16 @@ Then visit http://localhost:8000
 |------|---------|
 | `index.html` | GitHub Pages entry point (same dashboard as below) |
 | `great_lakes_superfund_dashboard.html` | Source dashboard file |
+| `great_lakes_tributaries.geojson` | Major Great Lakes tributaries (from `great_lakes_river_network.kmz`, HUC-2 region 04) |
+| `great_lakes_river_network.kmz` | Source river network layer |
 | `RENEW_logo.png` | Header logo |
+
+## Features
+
+- Expanded chemical inventory per site (PFAS, BFR, pesticides, PPCPs, and legacy contaminants)
+- Downloadable contaminant database (CSV or Excel) of all site–contaminant relationships
+- Major tributaries map layer with toggle
+- Prominent lake basin labels on the map
 
 ## Creator
 
