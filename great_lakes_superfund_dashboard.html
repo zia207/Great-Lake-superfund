@@ -94,7 +94,7 @@ h2 small{font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spaci
 .pdf-cancel:hover{color:var(--ink);border-color:var(--ink)}
 #map{width:100%;height:560px;background:#DDE6E8}
 .lake-label-icon{background:transparent;border:none}
-.lake-label{font:800 clamp(15px,2.4vw,24px)/1.05 "Segoe UI",system-ui,sans-serif;letter-spacing:.14em;color:#FFF;
+.lake-label{font:800 clamp(12px,1.7vw,18px)/1.05 "Segoe UI",system-ui,sans-serif;letter-spacing:.12em;color:#FFF;
   text-shadow:0 0 14px rgba(0,0,0,.95),0 0 5px rgba(0,0,0,.9),0 2px 8px rgba(0,0,0,.85);
   white-space:nowrap;pointer-events:none;transform:translate(-50%,-50%)}
 .map-note{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--steel);margin-top:6px;line-height:1.5}
@@ -255,7 +255,7 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
           <span><span class="diamond" style="background:#2F7D4E"></span>Area of Concern — delisted</span>
         </div>
         <div class="legend">
-          <span><span style="display:inline-block;width:18px;height:0;border-top:3px solid #4A90C4;vertical-align:middle;margin-right:6px"></span>Major tributaries</span>
+          <span><span style="display:inline-block;width:18px;height:0;border-top:3px solid #1565D8;vertical-align:middle;margin-right:6px"></span>Major tributaries</span>
         </div>
       </aside>
     </div>
@@ -538,11 +538,11 @@ const AOC_CHEM_DATA = {
   'Grand Calumet River / Indiana Harbor Canal':{PFAS:['PFOS'],BFR:['PBDEs'],'Legacy / industrial':['PAHs','PCBs']}
 };
 const LAKE_LABELS = [
-  {name:'LAKE SUPERIOR', lat:47.2, lng:-88.0},
-  {name:'LAKE MICHIGAN', lat:44.0, lng:-87.0},
-  {name:'LAKE HURON', lat:44.8, lng:-82.0},
-  {name:'LAKE ERIE', lat:42.5, lng:-81.2},
-  {name:'LAKE ONTARIO', lat:43.8, lng:-77.8}
+  {name:'LAKE SUPERIOR', lat:47.6, lng:-87.4},
+  {name:'LAKE MICHIGAN', lat:44.0, lng:-87.1},
+  {name:'LAKE HURON', lat:45.0, lng:-82.7},
+  {name:'LAKE ERIE', lat:42.25, lng:-80.95},
+  {name:'LAKE ONTARIO', lat:43.65, lng:-77.85}
 ];
 
 function categorizeContaminant(name){ return CHEM_TO_CATEGORY[name] || 'Legacy / industrial'; }
@@ -606,6 +606,7 @@ const STATUS_COLOR = {A:"#B7431C", C:"#C9930F", D:"#2F7D4E"};
 const AOC_COLOR = s => /delist/i.test(s) ? "#2F7D4E" : "#14707E";
 const LAKES = ["Superior","Michigan","Huron","Erie","Ontario"];
 const LAKE_COLOR = {Superior:"#3D6B7A", Michigan:"#14707E", Huron:"#6FA3AD", Erie:"#B7431C", Ontario:"#C9930F"};
+const RIVER_COLOR = '#1565D8';
 
 let activeLakes = new Set(LAKES);
 let showNPL = true, showAOC = true;
@@ -676,7 +677,7 @@ async function loadRiversLayer(){
     const geo = await res.json();
     riversGeoJSON = geo;
     riversLayer = L.geoJSON(geo, {
-      style: { color:'#4A90C4', weight:1.8, opacity:0.88 },
+      style: { color:RIVER_COLOR, weight:2, opacity:0.92 },
       onEachFeature:(f, layer) => {
         const nm = f.properties && f.properties.name;
         if (nm) layer.bindTooltip(nm, {sticky:true, className:'mono'});
@@ -971,7 +972,7 @@ function watershedCentroid(){
 }
 
 function drawLakeLabel(ctx, x, y, text){
-  ctx.font = 'bold 20px "Segoe UI", sans-serif';
+  ctx.font = 'bold 15px "Segoe UI", sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineWidth = 6;
@@ -992,9 +993,9 @@ function drawRiverLine(ctx, coords, xy){
     const [x, y] = xy(pt[1], pt[0]);
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   });
-  ctx.strokeStyle = '#4A90C4';
-  ctx.lineWidth = 1.5;
-  ctx.globalAlpha = 0.88;
+  ctx.strokeStyle = RIVER_COLOR;
+  ctx.lineWidth = 2;
+  ctx.globalAlpha = 0.92;
   ctx.stroke();
   ctx.globalAlpha = 1;
 }
@@ -1034,7 +1035,7 @@ function getLegendItems(opts){
     items.push({ shape: 'line', color: '#8A9AA0', label: 'State boundary', dashed: false });
   }
   if (opts.showRivers){
-    items.push({ shape: 'line', color: '#4A90C4', label: 'Major tributaries', dashed: false });
+    items.push({ shape: 'line', color: RIVER_COLOR, label: 'Major tributaries', dashed: false });
   }
   return items;
 }
@@ -1562,7 +1563,7 @@ $('f-reset').addEventListener('click', ()=>{
       <span><span class="diamond" style="background:#2F7D4E"></span>Area of Concern — delisted</span>
     </div>
     <div class="legend">
-      <span><span style="display:inline-block;width:18px;height:0;border-top:3px solid #4A90C4;vertical-align:middle;margin-right:6px"></span>Major tributaries</span>
+      <span><span style="display:inline-block;width:18px;height:0;border-top:3px solid #1565D8;vertical-align:middle;margin-right:6px"></span>Major tributaries</span>
     </div>`;
   map.setView([44.3,-84.0], 6);
   render();
