@@ -72,6 +72,21 @@ h2 small{font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spaci
   font-family:ui-monospace,Consolas,monospace;margin-bottom:6px}
 .map-legend .legend{margin-top:0;flex-direction:column;gap:5px;font-size:12px}
 .map-legend .legend span{display:block}
+.map-zoom-ctrl{position:absolute;top:10px;left:10px;z-index:1000;background:rgba(255,255,255,.96);
+  border:1px solid var(--hairline);padding:8px 10px;box-shadow:0 2px 10px rgba(20,38,46,.18);
+  font-size:12px;min-width:148px;pointer-events:auto}
+.map-zoom-ctrl strong{display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);
+  font-family:ui-monospace,Consolas,monospace;margin-bottom:6px}
+.map-zoom-btns{display:grid;grid-template-columns:28px 28px 1fr 28px 28px;align-items:center;gap:4px;margin-bottom:6px}
+.map-zoom-btns button{height:28px;border:1px solid var(--hairline);background:#F7FAFA;cursor:pointer;
+  font-size:15px;line-height:1;font-weight:700;color:var(--ink);padding:0}
+.map-zoom-btns button:hover{background:var(--lake-soft);border-color:var(--lake)}
+.map-zoom-btns button.coarse{font-size:12px}
+.map-zoom-level{font-family:ui-monospace,Consolas,monospace;font-size:12px;text-align:center;color:var(--ink)}
+.map-zoom-slider{width:100%;margin:2px 0 4px;accent-color:var(--lake)}
+.map-zoom-reset{width:100%;border:1px dashed var(--steel);background:none;color:var(--steel);padding:4px 8px;
+  font-size:10.5px;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;font-family:ui-monospace,Consolas,monospace}
+.map-zoom-reset:hover{color:var(--ink);border-color:var(--ink)}
 .map-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
 .export-pdf{background:var(--lake);color:#fff;border:none;padding:8px 14px;cursor:pointer;
   font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
@@ -248,6 +263,18 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
         </div>
         <div class="map-stage">
           <div id="map" role="application" aria-label="Satellite map of Superfund sites and Areas of Concern in the Great Lakes watershed"></div>
+          <div class="map-zoom-ctrl" id="map-zoom-ctrl" aria-label="Map zoom controls">
+            <strong>Zoom</strong>
+            <div class="map-zoom-btns">
+              <button type="button" class="coarse" id="zoom-out-coarse" title="Zoom out 1 level" aria-label="Zoom out one level">−−</button>
+              <button type="button" id="zoom-out-fine" title="Zoom out (fine, 0.25)" aria-label="Fine zoom out">−</button>
+              <span class="map-zoom-level" id="zoom-level" aria-live="polite">6.00</span>
+              <button type="button" id="zoom-in-fine" title="Zoom in (fine, 0.25)" aria-label="Fine zoom in">+</button>
+              <button type="button" class="coarse" id="zoom-in-coarse" title="Zoom in 1 level" aria-label="Zoom in one level">++</button>
+            </div>
+            <input type="range" class="map-zoom-slider" id="zoom-slider" min="4" max="14" step="0.25" value="6" aria-label="Zoom level slider">
+            <button type="button" class="map-zoom-reset" id="zoom-reset" title="Reset basin view">Reset view</button>
+          </div>
           <div class="map-legend" aria-label="Map legend">
             <strong>Legend</strong>
             <div class="legend">
@@ -264,7 +291,7 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
             </div>
           </div>
         </div>
-        <div class="map-note">Basemap: Esri World Imagery (satellite) · OpenStreetMap (street) · USA Topographic (Esri) — switchable via the layer control bottom-right ·
+        <div class="map-note">Zoom: fine controls top-left (0.25 steps, slider, scroll wheel) · Basemap: Esri World Imagery (satellite) · OpenStreetMap (street) · USA Topographic (Esri) — switchable via the layer control bottom-right ·
           Watershed boundary: uploaded <strong>Great Lakes Watershed Boundary</strong> KMZ, simplified for display ·
           Major tributaries: <strong>Great Lakes river network</strong> (<code>great_lakes_river_network.kmz</code>, HUC-2 region 04) ·
           State boundaries: U.S. Census Bureau cartographic boundaries (see footer note on the uploaded state file) ·
@@ -783,7 +810,17 @@ AOCS.forEach((a,i)=>{
 });
 
 /* ================= MAP ================= */
-const map = L.map('map', {scrollWheelZoom:true}).setView([44.3,-84.0], 6);
+const MAP_DEFAULT_VIEW = { center: [44.3, -84.0], zoom: 6 };
+const ZOOM_FINE_STEP = 0.25;
+const ZOOM_SLIDER_MAX = 14;
+
+const map = L.map('map', {
+  scrollWheelZoom: true,
+  zoomControl: false,
+  zoomSnap: ZOOM_FINE_STEP,
+  zoomDelta: ZOOM_FINE_STEP,
+  wheelPxPerZoomLevel: 100
+}).setView(MAP_DEFAULT_VIEW.center, MAP_DEFAULT_VIEW.zoom);
 
 const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
   attribution:'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community', maxZoom:18
@@ -845,6 +882,35 @@ async function loadRiversLayer(){
   }
 }
 loadRiversLayer();
+
+function clampZoom(z){
+  return Math.min(map.getMaxZoom(), Math.max(map.getMinZoom(), z));
+}
+function setMapZoom(z){
+  map.setZoom(clampZoom(Math.round(z / ZOOM_FINE_STEP) * ZOOM_FINE_STEP));
+}
+function updateZoomUI(){
+  const z = map.getZoom();
+  $('zoom-level').textContent = z.toFixed(2);
+  $('zoom-slider').value = z;
+}
+function resetMapView(){
+  map.setView(MAP_DEFAULT_VIEW.center, MAP_DEFAULT_VIEW.zoom);
+}
+map.on('zoom zoomend', updateZoomUI);
+['mousedown','dblclick','wheel','touchstart'].forEach(ev => {
+  $('map-zoom-ctrl').addEventListener(ev, e => L.DomEvent.stopPropagation(e));
+});
+$('zoom-slider').min = map.getMinZoom();
+$('zoom-slider').max = Math.min(map.getMaxZoom(), ZOOM_SLIDER_MAX);
+$('zoom-slider').step = ZOOM_FINE_STEP;
+$('zoom-in-fine').addEventListener('click', () => setMapZoom(map.getZoom() + ZOOM_FINE_STEP));
+$('zoom-out-fine').addEventListener('click', () => setMapZoom(map.getZoom() - ZOOM_FINE_STEP));
+$('zoom-in-coarse').addEventListener('click', () => setMapZoom(map.getZoom() + 1));
+$('zoom-out-coarse').addEventListener('click', () => setMapZoom(map.getZoom() - 1));
+$('zoom-slider').addEventListener('input', e => setMapZoom(parseFloat(e.target.value)));
+$('zoom-reset').addEventListener('click', resetMapView);
+updateZoomUI();
 
 const markerLayer = L.layerGroup().addTo(map);
 const markerByKey = {};
@@ -1814,7 +1880,7 @@ $('f-reset').addEventListener('click', ()=>{
   $('chip-npl').setAttribute('aria-pressed','true'); $('chip-aoc').setAttribute('aria-pressed','true');
   $('detail').innerHTML = `<h3>Select a site</h3>
     <p class="hint">Click any marker on the map — or a row in the register below — to see what was released there, which lake basin receives it, and where the cleanup or restoration stands.</p>`;
-  map.setView([44.3,-84.0], 6);
+  map.setView(MAP_DEFAULT_VIEW.center, MAP_DEFAULT_VIEW.zoom);
   render();
 });
 
