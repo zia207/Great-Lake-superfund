@@ -107,6 +107,8 @@ h2 small{font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spaci
 .lake-label-icon{background:transparent;border:none}
 .lake-label{font:700 clamp(10px,1.25vw,14px)/1.05 "Segoe UI",system-ui,sans-serif;letter-spacing:.1em;color:#FFF;
   white-space:nowrap;pointer-events:none;transform:translate(-50%,-50%)}
+.state-label{font:700 11px/1 "Segoe UI",system-ui,sans-serif;letter-spacing:.06em;color:#E8EDF0;
+  white-space:nowrap;pointer-events:none;transform:translate(-50%,-50%)}
 .map-note{font-family:ui-monospace,Consolas,monospace;font-size:10.5px;color:var(--steel);margin-top:6px;line-height:1.5}
 .chem-inv{margin-top:12px}
 .chem-inv h4{font-size:12px;font-family:ui-monospace,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--steel);margin-bottom:8px}
@@ -228,7 +230,7 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
         </div></div>
       <div class="field"><label id="layers-label">Map layers</label>
         <div class="chipset" id="layer-chips" role="group" aria-labelledby="layers-label">
-          <button class="chip" id="chip-states" aria-pressed="true">States</button>
+          <button class="chip" id="chip-states" aria-pressed="true">States &amp; labels</button>
           <button class="chip" id="chip-watershed" aria-pressed="true">Watershed</button>
           <button class="chip" id="chip-rivers" aria-pressed="true">Tributaries</button>
           <button class="chip" id="chip-lake-labels" aria-pressed="true">Lake labels</button>
@@ -450,7 +452,7 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
         <input id="pdf-fig-title" type="text" value="Great Lakes Superfund Sites and Areas of Concern"></div>
       <div class="pdf-field"><label for="pdf-data-source">Data source</label>
         <input id="pdf-data-source" type="text" value="EPA Superfund NPL sites &amp; Great Lakes AOC program (July 2026)"></div>
-      <label class="pdf-opt"><input type="checkbox" id="pdf-states" checked> State boundaries</label>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-states" checked> State boundaries &amp; abbreviations</label>
       <label class="pdf-opt"><input type="checkbox" id="pdf-legend" checked> Draw legend on figure</label>
       <div class="pdf-field"><label for="pdf-fig-size">PDF figure size (on page)</label>
         <select id="pdf-fig-size">
@@ -646,6 +648,16 @@ const LAKE_LABELS = [
   {name:'LAKE ERIE', lat:42.25, lng:-80.95},
   {name:'LAKE ONTARIO', lat:43.65, lng:-77.85}
 ];
+const STATE_LABELS = [
+  {abbr:'MN', lat:46.4, lng:-94.2},
+  {abbr:'WI', lat:44.6, lng:-90.2},
+  {abbr:'MI', lat:43.7, lng:-85.0},
+  {abbr:'IL', lat:40.3, lng:-89.2},
+  {abbr:'IN', lat:39.85, lng:-86.3},
+  {abbr:'OH', lat:41.15, lng:-82.6},
+  {abbr:'PA', lat:41.9, lng:-77.4},
+  {abbr:'NY', lat:43.1, lng:-76.0}
+];
 
 function categorizeContaminant(name){ return CHEM_TO_CATEGORY[name] || 'Legacy / industrial'; }
 
@@ -768,9 +780,15 @@ const watershedLayer = L.geoJSON(WATERSHED_GEOJSON, {
 }).addTo(map);
 
 const statesLayer = L.geoJSON(STATES_GEOJSON, {
-  style: { color:'#8A9AA0', weight:1.2, fillOpacity:0, dashArray:'none' },
-  onEachFeature:(f,layer)=>{ layer.bindTooltip(f.properties.name, {sticky:true, className:'mono'}); }
+  style: { color:'#8A9AA0', weight:1.2, fillOpacity:0, dashArray:'none' }
 }).addTo(map);
+
+const stateLabelsLayer = L.layerGroup();
+STATE_LABELS.forEach(st => {
+  const icon = L.divIcon({className:'lake-label-icon', html:`<div class="state-label">${st.abbr}</div>`, iconSize:[0,0], iconAnchor:[0,0]});
+  stateLabelsLayer.addLayer(L.marker([st.lat, st.lng], {icon, interactive:false}));
+});
+stateLabelsLayer.addTo(map);
 
 const lakeLabelsLayer = L.layerGroup();
 LAKE_LABELS.forEach(lk => {
@@ -1032,7 +1050,13 @@ function exportContaminantExcel(){
 
 /* ================= LAYER VISIBILITY ================= */
 function applyLayerVisibility(){
-  if (showStatesLayer) { if(!map.hasLayer(statesLayer)) statesLayer.addTo(map); } else { map.removeLayer(statesLayer); }
+  if (showStatesLayer) {
+    if(!map.hasLayer(statesLayer)) statesLayer.addTo(map);
+    if(!map.hasLayer(stateLabelsLayer)) stateLabelsLayer.addTo(map);
+  } else {
+    map.removeLayer(statesLayer);
+    map.removeLayer(stateLabelsLayer);
+  }
   if (showWatershedLayer) { if(!map.hasLayer(watershedLayer)) watershedLayer.addTo(map); } else { map.removeLayer(watershedLayer); }
   if (riversLayer){
     if (showRiversLayer) { if(!map.hasLayer(riversLayer)) riversLayer.addTo(map); } else { map.removeLayer(riversLayer); }
@@ -1120,6 +1144,16 @@ function drawLakeLabel(ctx, x, y, text, opts){
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = opts.lakeLabelColor || '#FFFFFF';
+  ctx.fillText(text, x, y);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawStateLabel(ctx, x, y, text){
+  ctx.font = '700 11px "Segoe UI", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#E8EDF0';
   ctx.fillText(text, x, y);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
@@ -1397,6 +1431,10 @@ async function renderMapToCanvas(width, height, opts, rows){
       } else if (f.geometry.type === 'MultiPolygon'){
         f.geometry.coordinates.forEach(poly => poly.forEach(ring => { drawRing(ring); ctx.stroke(); }));
       }
+    });
+    STATE_LABELS.forEach(st => {
+      const [sx, sy] = xy(st.lat, st.lng);
+      drawStateLabel(ctx, sx, sy, st.abbr);
     });
   }
 
