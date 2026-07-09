@@ -447,13 +447,37 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
     </fieldset>
 
     <fieldset>
-      <legend>Figure appearance</legend>
+      <legend>State abbreviations</legend>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-states" checked> Show state boundaries &amp; abbreviations</label>
+      <div class="pdf-grid">
+        <div class="pdf-field"><label for="pdf-state-font">Font size (px)</label>
+          <input type="number" id="pdf-state-font" min="8" max="24" step="1" value="11"></div>
+        <div class="pdf-field"><label for="pdf-state-color">Font color</label>
+          <input type="color" id="pdf-state-color" value="#E8EDF0"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Legend</legend>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-legend" checked> Draw legend on figure</label>
+      <div class="pdf-field"><label for="pdf-legend-font">Legend font size (px)</label>
+        <input type="number" id="pdf-legend-font" min="9" max="20" step="1" value="13"></div>
+      <div id="legend-items-panel" class="pdf-colors" style="margin-top:8px">
+        <span style="display:block;font-family:ui-monospace,Consolas,monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--steel);margin-bottom:6px">Legend content</span>
+        <label class="pdf-opt"><input type="checkbox" id="legend-npl" checked> NPL site symbols</label>
+        <label class="pdf-opt"><input type="checkbox" id="legend-aoc" checked> AOC symbols</label>
+        <label class="pdf-opt"><input type="checkbox" id="legend-watershed" checked> Watershed boundary</label>
+        <label class="pdf-opt"><input type="checkbox" id="legend-states" checked> State boundary</label>
+        <label class="pdf-opt"><input type="checkbox" id="legend-rivers" checked> Major tributaries</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Figure appearance (PDF)</legend>
       <div class="pdf-field"><label for="pdf-fig-title">Figure title</label>
         <input id="pdf-fig-title" type="text" value="Great Lakes Superfund Sites and Areas of Concern"></div>
       <div class="pdf-field"><label for="pdf-data-source">Data source</label>
         <input id="pdf-data-source" type="text" value="EPA Superfund NPL sites &amp; Great Lakes AOC program (July 2026)"></div>
-      <label class="pdf-opt"><input type="checkbox" id="pdf-states" checked> State boundaries &amp; abbreviations</label>
-      <label class="pdf-opt"><input type="checkbox" id="pdf-legend" checked> Draw legend on figure</label>
       <div class="pdf-field"><label for="pdf-fig-size">PDF figure size (on page)</label>
         <select id="pdf-fig-size">
           <option value="small">Small — 4 × 2.5 in</option>
@@ -461,18 +485,20 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
           <option value="large">Large — 7.5 × 4.5 in</option>
           <option value="full">Full width — use maximum page width</option>
         </select></div>
-      <label class="pdf-opt"><input type="checkbox" id="pdf-register" checked> Include site register table (PDF only)</label>
+      <label class="pdf-opt"><input type="checkbox" id="pdf-register" checked> Include site register table</label>
     </fieldset>
 
     <fieldset>
-      <legend>PNG resolution</legend>
-      <div class="pdf-field"><label for="pdf-png-width">Output width (pixels)</label>
-        <select id="pdf-png-width">
-          <option value="1280">1280 px — screen / web</option>
-          <option value="1920">1920 px — HD</option>
-          <option value="2400" selected>2400 px — high quality</option>
-          <option value="3600">3600 px — print / publication</option>
+      <legend>PNG figure size</legend>
+      <div class="pdf-field"><label for="pdf-png-size">Output size</label>
+        <select id="pdf-png-size">
+          <option value="1280">Small — 1280 px wide</option>
+          <option value="1920">Medium — 1920 px wide</option>
+          <option value="2400" selected>Large — 2400 px wide</option>
+          <option value="3600">Extra large — 3600 px wide</option>
+          <option value="4800">Print — 4800 px wide</option>
         </select></div>
+      <p style="font-size:12px;color:var(--steel);margin-top:6px">Height is calculated automatically from the current map extent.</p>
     </fieldset>
 
     <div class="pdf-modal-actions">
@@ -1149,11 +1175,12 @@ function drawLakeLabel(ctx, x, y, text, opts){
   ctx.textBaseline = 'alphabetic';
 }
 
-function drawStateLabel(ctx, x, y, text){
-  ctx.font = '700 11px "Segoe UI", sans-serif';
+function drawStateLabel(ctx, x, y, text, opts){
+  const size = (opts && opts.stateLabelFontSize) || 11;
+  ctx.font = `700 ${size}px "Segoe UI", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#E8EDF0';
+  ctx.fillStyle = (opts && opts.stateLabelColor) || '#E8EDF0';
   ctx.fillText(text, x, y);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
@@ -1181,22 +1208,22 @@ function getLegendItems(opts){
   const nplShape = (opts.nplSymbolShape || 'circle').replace(/^\w/, ch => ch.toUpperCase());
   const aocShape = (opts.aocSymbolShape || 'diamond').replace(/^\w/, ch => ch.toUpperCase());
   const items = [];
-  if (opts.showNPL){
+  if (opts.legendNpl !== false && opts.showNPL){
     items.push({ shape: opts.nplSymbolShape || 'circle', color: c.nplA, label: `NPL — cleanup ongoing (${nplShape})` });
     items.push({ shape: opts.nplSymbolShape || 'circle', color: c.nplC, label: `NPL — construction complete (${nplShape})` });
     items.push({ shape: opts.nplSymbolShape || 'circle', color: c.nplD, label: `NPL — deleted (${nplShape})` });
   }
-  if (opts.showAOC){
+  if (opts.legendAoc !== false && opts.showAOC){
     items.push({ shape: opts.aocSymbolShape || 'diamond', color: c.aocActive, label: `AOC — active (${aocShape})` });
     items.push({ shape: opts.aocSymbolShape || 'diamond', color: c.aocDelisted, label: `AOC — delisted (${aocShape})` });
   }
-  if (opts.showWatershed){
+  if (opts.legendWatershed !== false && opts.showWatershed){
     items.push({ shape: 'line', color: opts.watershedColor || '#B7431C', label: 'Watershed boundary', dashed: opts.watershedLineStyle === 'dashed', dotted: opts.watershedLineStyle === 'dotted' });
   }
-  if (opts.showStates){
+  if (opts.legendStates !== false && opts.showStates){
     items.push({ shape: 'line', color: '#8A9AA0', label: 'State boundary', dashed: false });
   }
-  if (opts.showRivers){
+  if (opts.legendRivers !== false && opts.showRivers){
     items.push({ shape: 'line', color: opts.riverColor || RIVER_COLOR, label: 'Major tributaries', dashed: opts.riverLineStyle === 'dashed', dotted: opts.riverLineStyle === 'dotted' });
   }
   return items;
@@ -1208,8 +1235,9 @@ function drawLegendBox(ctx, width, height, opts){
   const mapSz = getNplSymbolSize(opts);
   const sz = { r: Math.max(mapSz.r + 3, 8), half: Math.max(mapSz.half + 2, 7) };
   const pad = 16;
-  const rowH = Math.max(24, sz.r * 2 + 12);
-  ctx.font = '600 13px "Segoe UI", sans-serif';
+  const legendFont = opts.legendFontSize || 13;
+  const rowH = Math.max(22, legendFont + 12);
+  ctx.font = `600 ${legendFont}px "Segoe UI", sans-serif`;
   const maxLabelW = Math.max(...items.map(it => ctx.measureText(it.label).width));
   const boxW = Math.min(width - 24, Math.max(280, pad + sz.r * 2 + 18 + maxLabelW + pad));
   const boxH = pad * 2 + items.length * rowH + 20;
@@ -1230,10 +1258,10 @@ function drawLegendBox(ctx, width, height, opts){
   ctx.restore();
 
   ctx.fillStyle = '#14262E';
-  ctx.font = 'bold 16px "Segoe UI", sans-serif';
+  ctx.font = `bold ${legendFont + 3}px "Segoe UI", sans-serif`;
   ctx.fillText('Legend', x0 + pad, y0 + pad + 11);
 
-  ctx.font = '600 13px "Segoe UI", sans-serif';
+  ctx.font = `600 ${legendFont}px "Segoe UI", sans-serif`;
   items.forEach((item, i) => {
     const cy = y0 + pad + 22 + i * rowH + rowH / 2;
     const ix = x0 + pad + sz.r + 4;
@@ -1274,7 +1302,7 @@ function drawLegendBox(ctx, width, height, opts){
       ctx.setLineDash([]);
     }
     ctx.fillStyle = '#14262E';
-    ctx.font = '600 13px "Segoe UI", sans-serif';
+    ctx.font = `600 ${legendFont}px "Segoe UI", sans-serif`;
     ctx.fillText(item.label, x0 + pad + sz.r * 2 + 18, cy + 5);
   });
 }
@@ -1434,7 +1462,7 @@ async function renderMapToCanvas(width, height, opts, rows){
     });
     STATE_LABELS.forEach(st => {
       const [sx, sy] = xy(st.lat, st.lng);
-      drawStateLabel(ctx, sx, sy, st.abbr);
+      drawStateLabel(ctx, sx, sy, st.abbr, opts);
     });
   }
 
@@ -1490,7 +1518,7 @@ function readExportOptionsFromForm(){
     figureTitle: $('pdf-fig-title').value.trim() || 'Great Lakes Superfund Sites and Areas of Concern',
     dataSource: $('pdf-data-source').value.trim(),
     figureSize: $('pdf-fig-size').value,
-    pngWidth: parseInt($('pdf-png-width').value, 10) || 2400,
+    pngWidth: parseInt($('pdf-png-size').value, 10) || 2400,
     nplSymbolShape: $('pdf-npl-shape').value,
     aocSymbolShape: $('pdf-aoc-shape').value,
     nplSymbolSize: $('pdf-npl-size').value,
@@ -1498,6 +1526,12 @@ function readExportOptionsFromForm(){
     colorMode: $('pdf-color-mode').value,
     customColors: readCustomColorsFromForm(),
     showLegend: $('pdf-legend').checked,
+    legendFontSize: parseInt($('pdf-legend-font').value, 10) || 13,
+    legendNpl: $('legend-npl').checked,
+    legendAoc: $('legend-aoc').checked,
+    legendWatershed: $('legend-watershed').checked,
+    legendStates: $('legend-states').checked,
+    legendRivers: $('legend-rivers').checked,
     watershedColor: $('pdf-ws-color').value,
     watershedLineWidth: parseFloat($('pdf-ws-width').value) || 2,
     watershedLineStyle: $('pdf-ws-style').value,
@@ -1505,8 +1539,15 @@ function readExportOptionsFromForm(){
     riverLineWidth: parseFloat($('pdf-rv-width').value) || 2,
     riverLineStyle: $('pdf-rv-style').value,
     lakeLabelFontSize: parseInt($('pdf-lake-font').value, 10) || 12,
-    lakeLabelColor: $('pdf-lake-color').value
+    lakeLabelColor: $('pdf-lake-color').value,
+    stateLabelFontSize: parseInt($('pdf-state-font').value, 10) || 11,
+    stateLabelColor: $('pdf-state-color').value
   };
+}
+
+function toggleLegendItemsPanel(){
+  $('legend-items-panel').style.opacity = $('pdf-legend').checked ? '1' : '0.45';
+  $('legend-items-panel').querySelectorAll('input').forEach(inp => { inp.disabled = !$('pdf-legend').checked; });
 }
 
 function togglePdfCustomColors(){
@@ -1528,6 +1569,7 @@ function syncPdfModalFromMap(){
     inp.checked = activeLakes.has(inp.value);
   });
   togglePdfCustomColors();
+  toggleLegendItemsPanel();
 }
 
 function figureDimensions(pdfOpts, pageW, yStart, pageH, margin){
@@ -1661,19 +1703,22 @@ async function exportPdfReport(opts){
     pdf.setFontSize(9);
     pdf.setTextColor(90, 110, 120);
     if (!opts.showLegend){
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(10);
-      pdf.setTextColor(20, 38, 46);
-      pdfCenterText(pdf, 'Legend', y, pageW);
-      y += 12;
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(9);
-      pdf.setTextColor(60, 70, 75);
-      getLegendItems(opts).forEach(item => {
-        pdfCenterText(pdf, `• ${item.label}`, y, pageW);
+      const legItems = getLegendItems(opts);
+      if (legItems.length){
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(Math.max(9, (opts.legendFontSize || 13) - 2));
+        pdf.setTextColor(20, 38, 46);
+        pdfCenterText(pdf, 'Legend', y, pageW);
         y += 12;
-      });
-      y += 4;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(Math.max(8, (opts.legendFontSize || 13) - 3));
+        pdf.setTextColor(60, 70, 75);
+        legItems.forEach(item => {
+          pdfCenterText(pdf, `• ${item.label}`, y, pageW);
+          y += 12;
+        });
+        y += 4;
+      }
     }
 
     if (basemapUsed !== 'none' && !basemapDrawn){
@@ -1777,6 +1822,7 @@ $('btn-export-pdf').addEventListener('click', openPdfModal);
 $('pdf-cancel').addEventListener('click', closePdfModal);
 $('pdf-modal-backdrop').addEventListener('click', closePdfModal);
 $('pdf-color-mode').addEventListener('change', togglePdfCustomColors);
+$('pdf-legend').addEventListener('change', toggleLegendItemsPanel);
 $('export-png').addEventListener('click', () => exportPngReport(readExportOptionsFromForm()));
 $('export-pdf').addEventListener('click', () => exportPdfReport(readExportOptionsFromForm()));
 document.addEventListener('keydown', e => {
@@ -1784,6 +1830,7 @@ document.addEventListener('keydown', e => {
 });
 
 applyLayerVisibility();
+toggleLegendItemsPanel();
 render();
 </script>
 </body>
