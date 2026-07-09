@@ -516,6 +516,13 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
     </fieldset>
 
     <fieldset>
+      <legend>Map extent</legend>
+      <label class="pdf-opt"><input type="radio" name="pdf-extent" value="current" checked> Current map view (matches zoom &amp; pan on screen)</label>
+      <label class="pdf-opt"><input type="radio" name="pdf-extent" value="basin"> Full Great Lakes basin (fixed regional view)</label>
+      <p style="font-size:12px;color:var(--steel);margin-top:6px">PNG/PDF always render from the selected extent. Use <strong>Full basin</strong> for a consistent figure; use <strong>Current view</strong> to export a zoomed detail.</p>
+    </fieldset>
+
+    <fieldset>
       <legend>PNG figure size</legend>
       <div class="pdf-field"><label for="pdf-png-size">Output size</label>
         <select id="pdf-png-size">
@@ -525,7 +532,7 @@ footer{background:var(--ink);color:#9FB3BA;margin-top:50px}
           <option value="3600">Extra large — 3600 px wide</option>
           <option value="4800">Print — 4800 px wide</option>
         </select></div>
-      <p style="font-size:12px;color:var(--steel);margin-top:6px">Height is calculated automatically from the current map extent.</p>
+      <p style="font-size:12px;color:var(--steel);margin-top:6px">Height is calculated automatically from the selected map extent and output width.</p>
     </fieldset>
 
     <div class="pdf-modal-actions">
@@ -795,6 +802,18 @@ function pointInPolygon(lng, lat, ring){
 }
 const WATERSHED_RING = WATERSHED_GEOJSON.geometry.coordinates[0];
 function inWatershed(lat,lng){ return pointInPolygon(lng, lat, WATERSHED_RING); }
+
+const MAP_BASIN_BOUNDS = (() => {
+  let west = Infinity, east = -Infinity, south = Infinity, north = -Infinity;
+  WATERSHED_RING.forEach(([lng, lat]) => {
+    west = Math.min(west, lng); east = Math.max(east, lng);
+    south = Math.min(south, lat); north = Math.max(north, lat);
+  });
+  const padLng = (east - west) * 0.04;
+  const padLat = (north - south) * 0.04;
+  return { west: west - padLng, east: east + padLng, south: south - padLat, north: north + padLat };
+})();
+const BASEMAP_MAX_ZOOM = { satellite: 18, streets: 19, topography: 16, none: 0, current: 18 };
 
 /* ================= BUILD UNIFIED RECORD SET ================= */
 const RECORDS = [];
@@ -1385,6 +1404,22 @@ function getCurrentBasemap(){
   return 'none';
 }
 
+function getExportBounds(opts){
+  if (opts.exportExtent === 'basin') return { ...MAP_BASIN_BOUNDS };
+  const b = map.getBounds();
+  return { west: b.getWest(), east: b.getEast(), south: b.getSouth(), north: b.getNorth() };
+}
+
+function computeExportTileZoom(width, bounds, basemap){
+  const resolved = basemap === 'current' ? getCurrentBasemap() : basemap;
+  const maxZ = BASEMAP_MAX_ZOOM[resolved] || 18;
+  if (resolved === 'none') return 4;
+  const lngSpan = bounds.east - bounds.west || 1;
+  const pxPerDeg = width / lngSpan;
+  const z = Math.ceil(Math.log2(pxPerDeg * 360 / 256));
+  return Math.min(maxZ, Math.max(4, z));
+}
+
 function basemapTileUrl(basemap, z, y, x){
   const subs = ['a', 'b', 'c'];
   if (basemap === 'satellite')
@@ -1435,17 +1470,16 @@ function tileLat(y, z){
   return 180 / Math.PI * Math.atan(Math.sinh(n));
 }
 
-async function drawBasemapTiles(ctx, width, height, basemap){
+async function drawBasemapTiles(ctx, width, height, basemap, bounds){
   if (basemap === 'none') return false;
-  const bounds = map.getBounds();
-  const west = bounds.getWest(), east = bounds.getEast(), north = bounds.getNorth(), south = bounds.getSouth();
+  const west = bounds.west, east = bounds.east, north = bounds.north, south = bounds.south;
   const lngSpan = east - west || 1;
   const latSpan = north - south || 1;
   const xy = (lat, lng) => [
     ((lng - west) / lngSpan) * width,
     ((north - lat) / latSpan) * height
   ];
-  const z = Math.min(Math.max(map.getZoom(), 4), 10);
+  const z = computeExportTileZoom(width, bounds, basemap);
   const n = Math.pow(2, z);
   const xMin = Math.max(0, Math.floor((west + 180) / 360 * n));
   const xMax = Math.min(n - 1, Math.floor((east + 180) / 360 * n));
@@ -1485,8 +1519,8 @@ async function renderMapToCanvas(width, height, opts, rows){
   ctx.fillStyle = '#DDE6E8';
   ctx.fillRect(0, 0, width, height);
 
-  const bounds = map.getBounds();
-  const west = bounds.getWest(), east = bounds.getEast(), north = bounds.getNorth(), south = bounds.getSouth();
+  const bounds = getExportBounds(opts);
+  const west = bounds.west, east = bounds.east, north = bounds.north, south = bounds.south;
   const lngSpan = east - west || 1;
   const latSpan = north - south || 1;
   const xy = (lat, lng) => [
@@ -1495,7 +1529,7 @@ async function renderMapToCanvas(width, height, opts, rows){
   ];
 
   const basemap = opts.basemap === 'current' ? getCurrentBasemap() : opts.basemap;
-  const basemapDrawn = await drawBasemapTiles(ctx, width, height, basemap);
+  const basemapDrawn = await drawBasemapTiles(ctx, width, height, basemap, bounds);
 
   const drawRing = ring => {
     ctx.beginPath();
@@ -1584,6 +1618,7 @@ function readExportOptionsFromForm(){
     figureTitle: $('pdf-fig-title').value.trim() || 'Great Lakes Superfund Sites and Areas of Concern',
     dataSource: $('pdf-data-source').value.trim(),
     figureSize: $('pdf-fig-size').value,
+    exportExtent: document.querySelector('input[name="pdf-extent"]:checked')?.value || 'current',
     pngWidth: parseInt($('pdf-png-size').value, 10) || 2400,
     nplSymbolShape: $('pdf-npl-shape').value,
     aocSymbolShape: $('pdf-aoc-shape').value,
@@ -1673,9 +1708,8 @@ async function getExportRows(opts){
 }
 
 function pngCanvasDimensions(opts){
-  const bounds = map.getBounds();
-  const west = bounds.getWest(), east = bounds.getEast(), north = bounds.getNorth(), south = bounds.getSouth();
-  const aspect = (east - west) / Math.max(north - south, 0.01);
+  const bounds = getExportBounds(opts);
+  const aspect = (bounds.east - bounds.west) / Math.max(bounds.north - bounds.south, 0.01);
   const width = opts.pngWidth;
   const height = Math.round(width / aspect);
   return { width, height };
